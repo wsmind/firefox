@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include shared,rect,border_shared,ellipse
+#include shared,rect,border_shared,ellipse,debug
 
 // For edges, the colors are the same. For corners, these
 // are the colors of each edge making up the corner.
@@ -32,6 +32,9 @@ flat varying highp vec4 vClipCenter_Sign;
 // An outer and inner elliptical radii for border
 // corner clipping.
 flat varying highp vec4 vClipRadii;
+
+// vec2 to avoid bug
+flat varying highp vec3 vShape;
 
 // Reference point for determine edge clip lines.
 flat varying highp vec4 vEdgeReference;
@@ -195,6 +198,7 @@ void main(void) {
     vColor11 = color1[1];
     vClipCenter_Sign = vec4(outer + clip_sign * data.radii, clip_sign);
     vClipRadii = vec4(data.radii, max(data.radii - data.widths, 0.0));
+    vShape = vec3(data.shape, data.widths);
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
     vEdgeReference = vec4(edge_reference, edge_reference + data.widths);
     vClipParams1 = aClipParams1;
@@ -246,23 +250,52 @@ vec4 evaluate_color_for_style_in_corner(
             // also 0.67 of the radii. Use these to form a
             // SDF subtraction which will clip out the inside
             // third of the rounded edge.
-            float d_radii_a = distance_to_ellipse(
+            // float d_radii_a = distance_to_ellipse(
+            //     clip_relative_pos,
+            //     clip_radii.xy - vPartialWidths.xy
+            // );
+            // float d_radii_b = distance_to_ellipse(
+            //     clip_relative_pos,
+            //     clip_radii.xy - 2.0 * vPartialWidths.xy
+            // );
+            //float d_radii_a = length(clip_relative_pos) - vClipRadii.x;
+            float d_radii_a = distance_to_superellipse(
                 clip_relative_pos,
-                clip_radii.xy - vPartialWidths.xy
+                clip_radii.xy - vPartialWidths.xy,
+                vShape.x
             );
-            float d_radii_b = distance_to_ellipse(
-                clip_relative_pos,
-                clip_radii.xy - 2.0 * vPartialWidths.xy
-            );
+            float d_radii_b;
+            vec2 shrunkRadii = clip_radii.xy - 2.0 * vPartialWidths.xy;
+            if (all(lessThanEqual(shrunkRadii, vec2(0.0)))) {
+                d_radii_b = 1.0;
+            } else if (vShape.x >= 0.0) {
+                d_radii_b = distance_to_superellipse(
+                    clip_relative_pos,
+                    shrunkRadii,
+                    vShape.x
+                );
+            } else {
+                d_radii_b = distance_to_superellipse(
+                    clip_relative_pos + 2.0 * vPartialWidths.xy,
+                    clip_radii.xy,
+                    vShape.x
+                );
+            }
             float d = min(-d_radii_a, d_radii_b);
+
+            // float e1 = -min(-d_radii_a, d_radii_a + vPartialWidths.x);
+            // float e2 = -min(-vPartialWidths.x * 2.0 - d_radii_a, d_radii_a + vPartialWidths.x * 3.0);
+            // float d = min(e1, e2);
+
             color0 *= distance_aa(aa_range, d);
             break;
         }
         case BORDER_STYLE_GROOVE:
         case BORDER_STYLE_RIDGE: {
-            float d = distance_to_ellipse(
-                clip_relative_pos,
-                clip_radii.xy - vPartialWidths.zw
+            float d = distance_to_superellipse(
+                clip_relative_pos + vPartialWidths.zw,
+                clip_radii.xy,
+                vShape.x
             );
             float alpha = distance_aa(aa_range, d);
             float swizzled_factor;
@@ -382,10 +415,23 @@ void main(void) {
     }
 
     if (in_clip_region) {
-        float d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
-        float d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
+        clip_relative_pos = abs(clip_relative_pos);
+        // float d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
+        // float d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
+        float d_radii_a = distance_to_superellipse(clip_relative_pos, vClipRadii.xy, vShape.x);
+        float d_radii_b;
+        if (all(lessThanEqual(vClipRadii.zw, vec2(0.0)))) {
+            d_radii_b = 1.0;
+        } else if (vShape.x >= 0.0) {
+            d_radii_b = distance_to_superellipse(clip_relative_pos, vClipRadii.zw, vShape.x);
+        } else {
+            d_radii_b = distance_to_superellipse(clip_relative_pos + vShape.yz, vClipRadii.xy, vShape.x);
+        }
         float d_radii = max(d_radii_a, -d_radii_b);
         d = max(d, d_radii);
+        // float d1 = -min(-d_radii_a, d_radii_a + vPartialWidths.x);
+        // float d2 = -min(vPartialWidths.x * 2.0 - d_radii_a, d_radii_a + vPartialWidths.x * 3.0);
+        //d = d_radii_a;
 
         color0 = evaluate_color_for_style_in_corner(
             clip_relative_pos,
@@ -429,5 +475,6 @@ void main(void) {
     float alpha = distance_aa(aa_range, d);
     vec4 color = mix(color0, color1, mix_factor);
     oFragColor = color * alpha;
+    //oFragColor = debug_sdf(d);
 }
 #endif
