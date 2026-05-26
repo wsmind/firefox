@@ -192,6 +192,7 @@ pub struct BorderInstanceGpuData {
     pub widths: DeviceSize,
     pub radius: DeviceSize,
     pub shape: f32,
+    pub shape_offset: DeviceSize,
 }
 
 impl BorderInstanceGpuData {
@@ -201,7 +202,7 @@ impl BorderInstanceGpuData {
         writer.push_one(self.color0);
         writer.push_one(self.color1);
         writer.push_one([self.widths.width, self.widths.height, self.radius.width, self.radius.height]);
-        writer.push_one([self.shape, 0.0, 0.0, 0.0]);
+        writer.push_one([self.shape, self.shape_offset.width, self.shape_offset.height, 0.0]);
 
         writer.finish()
     }
