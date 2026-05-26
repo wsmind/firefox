@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include shared,rect,border_shared,ellipse
+#include shared,rect,border_shared,ellipse,debug
 
 #define DONT_MIX 0
 #define MIX_AA 1
@@ -29,6 +29,9 @@ flat varying highp vec4 vClipCenter_Sign;
 // An outer and inner elliptical radii for border
 // corner clipping.
 flat varying highp vec4 vClipRadii;
+
+flat varying highp vec3 vShape;
+flat varying highp vec2 vWidths;
 
 // Position, scale, and radii of horizontally and vertically adjacent corner clips.
 flat varying highp vec4 vHorizontalClipCenter_Sign;
@@ -94,10 +97,14 @@ void main(void) {
     vMixColors.x = mix_colors;
     vPos = size * aPosition.xy;
 
+    //data.shape_offset = vec2(0.0);
+
     vColor0 = data.color0;
     vColor1 = data.color1;
-    vClipCenter_Sign = vec4(outer + clip_sign * data.radii, clip_sign);
+    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + data.shape_offset), clip_sign);
     vClipRadii = vec4(data.radii, max(data.radii - data.widths, 0.0));
+    vShape = vec3(data.shape, data.shape_offset);
+    vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
 
     vec2 horizontal_clip_sign = vec2(-clip_sign.x, clip_sign.y);
@@ -131,14 +138,33 @@ void main(void) {
         }
     }
 
+    //oFragColor = vec4(0.0, 1.0, 0.0, 1.0);
+
     // Check if inside main corner clip-region
     vec2 clip_relative_pos = vPos - vClipCenter_Sign.xy;
     bool in_clip_region = all(lessThan(vClipCenter_Sign.zw * clip_relative_pos, vec2(0.0)));
 
+    //oFragColor = debug_sdf(length(clip_relative_pos - vShape.yz));
+
     float d = -1.0;
     if (in_clip_region) {
-        float d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
-        float d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
+        float d_radii_a;
+        float d_radii_b;
+
+        if (vShape.x == 1.0) {
+            d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
+            d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
+        } else {
+            clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
+            d_radii_a = distance_to_superellipse(clip_relative_pos, vClipRadii.xy, vShape.x);
+            if (all(lessThanEqual(vClipRadii.zw, vec2(0.0)))) {
+                d_radii_b = 1.0;
+            } else if (vShape.x >= 0.0) {
+                d_radii_b = distance_to_superellipse(clip_relative_pos, vClipRadii.zw, vShape.x);
+            } else {
+                d_radii_b = distance_to_superellipse(clip_relative_pos + vWidths.yx, vClipRadii.xy, vShape.x);
+            }
+        }
         d = max(d_radii_a, -d_radii_b);
     }
 
@@ -161,5 +187,6 @@ void main(void) {
     float alpha = do_aa ? distance_aa(aa_range, d) : 1.0;
     vec4 color = mix(vColor0, vColor1, mix_factor);
     oFragColor = color * alpha;
+    //oFragColor = debug_sdf(d);
 }
 #endif
