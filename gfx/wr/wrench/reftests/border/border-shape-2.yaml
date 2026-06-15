@@ -1,0 +1,51 @@
+---
+root:
+  items:
+    - type: stacking-context
+      bounds: [0, 0, 1200, 800 ]
+      items:
+        - type: rect
+          bounds: [0, 0, 1200, 800 ]
+          color: black
+        - type: border
+          bounds: [ 50, 50, 300, 300 ]
+          width: 40
+          border-type: normal
+          style: solid
+          color: white
+          radius: [ 10, 10, 150, 100, 26.0, 2.0, 6.0, 9.0 ]
+        - type: border
+          bounds: [ 450, 50, 300, 300 ]
+          width: [40, 16, 32, 10]
+          border-type: normal
+          style: solid
+          color: white
+          radius: [ 60, 60, 60, 60, 2.0, 2.0, 2.0, 2.0 ]
+        - type: border
+          bounds: [ 850, 50, 300, 300 ]
+          width: [8, 16, 32, 10]
+          border-type: normal
+          style: solid
+          color: white
+          radius: [ 40, 40, 40, 40, 2.0, -2.0, 0.0, 2.0 ]
+        - type: border
+          bounds: [ 50, 450, 300, 300 ]
+          width: 40
+          border-type: normal
+          style: double
+          color: white
+          radius: [ 10, 10, 10, 10, 2.0, 2.0, 2.0, 2.0 ]
+        - type: border
+          bounds: [ 450, 450, 300, 300 ]
+          width: 40
+          border-type: normal
+          style: double
+          color: white
+          radius: [ 20, 20, 20, 20, 2.0, 2.0, 2.0, 2.0 ]
+        - type: border
+          bounds: [ 850, 450, 300, 300 ]
+          width: [40, 20, 5, 16]
+          border-type: normal
+          style: double
+          color: white
+          radius: [ 40, 40, 40, 40, 2.0, -2.0, 2.0, 2.0 ]

@@ -1,0 +1,16 @@
+---
+root:
+  items:
+    - type: stacking-context
+      bounds: [0, 0, 800, 800 ]
+      items:
+        - type: rect
+          bounds: [0, 0, 800, 800 ]
+          color: black
+        - type: border
+          bounds: [ 50, 50, 700, 700 ]
+          width: [40, 2, 20, 50]
+          border-type: normal
+          style: solid
+          color: white
+          radius: [ 60, 60, 300, 400, -2.0, -2.0, -Inf, -2.0 ]
