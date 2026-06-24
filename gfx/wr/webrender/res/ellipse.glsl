@@ -159,6 +159,14 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
     // Divide by radii: normalize the position to [0, 1]
     vec2 q = p * inv_radii;
 
+    // Early-out: if position is outside the curved shape, simplify
+    // to the main axes
+    if (any(lessThanEqual(q, vec2(0.0)))) {
+        vec2 radii = 1.0 / inv_radii;
+        p = radii - p;
+        return min(p.x, p.y);
+    }
+
     // Compute the superellipse function
     vec2 qn = pow(q, vec2(n));
     qn = clamp(qn, 0.0, 1.0e3); // Clamp to avoid numerical overflow
