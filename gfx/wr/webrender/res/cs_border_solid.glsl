@@ -31,6 +31,7 @@ flat varying highp vec4 vClipCenter_Sign;
 flat varying highp vec4 vClipRadii;
 
 flat varying highp vec3 vShape;
+flat varying highp vec4 vShape2;
 flat varying highp vec2 vWidths;
 
 // Position, scale, and radii of horizontally and vertically adjacent corner clips.
@@ -107,6 +108,21 @@ void main(void) {
     vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
 
+    float n = exp2(data.shape);
+    float q = pow(0.05, n - 1.0);
+
+    // x: dy/dx at (0.05 * data.radii.x, data.radii.y)
+    // y: dx/dy at (data.radii.x, 0.05 * data.radii.y)
+    vec2 grad = -q * vec2(data.radii.y / data.radii.x, data.radii.x / data.radii.y);
+
+    // normals
+    vec2 n1 = normalize(vec2(grad.x, -1.0)) * data.widths.y;
+    vec2 n2 = normalize(vec2(-1.0, grad.y)) * data.widths.x;
+
+    vec2 offset = vec2(n1.x, n2.y); // always negative
+    vec2 shrunkRadii = data.radii + vec2(n2.x, n1.y) - offset;
+    vShape2 = vec4(offset, shrunkRadii);
+
     vec2 horizontal_clip_sign = vec2(-clip_sign.x, clip_sign.y);
     vHorizontalClipCenter_Sign = vec4(aClipParams1.xy +
                                       horizontal_clip_sign * aClipParams1.zw,
@@ -124,6 +140,10 @@ void main(void) {
 #endif
 
 #ifdef WR_FRAGMENT_SHADER
+float debug_circle(vec2 pos, vec2 center) {
+    return length(pos - center) - 10.0;
+}
+
 void main(void) {
     float aa_range = compute_aa_range(vPos);
     bool do_aa = vMixColors.x != MIX_NO_AA;
@@ -147,6 +167,7 @@ void main(void) {
     //oFragColor = debug_sdf(length(clip_relative_pos - vShape.yz));
 
     float d = -1.0;
+    float d2 = 1000.0;
     if (in_clip_region) {
         float d_radii_a;
         float d_radii_b;
@@ -155,15 +176,24 @@ void main(void) {
             d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
             d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
         } else {
+            // clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
+            // d_radii_a = distance_to_superellipse(clip_relative_pos, vClipRadii.xy, vShape.x);
+            // if (all(lessThanEqual(vClipRadii.zw, vec2(0.0)))) {
+            //     d_radii_b = 1.0;
+            // } else if (vShape.x >= 0.0) {
+            //     d_radii_b = distance_to_superellipse(clip_relative_pos, vClipRadii.zw, vShape.x);
+            // } else {
+            //     d_radii_b = distance_to_superellipse(clip_relative_pos + vWidths.yx, vClipRadii.xy, vShape.x);
+            // }
+            
             clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
             d_radii_a = distance_to_superellipse(clip_relative_pos, vClipRadii.xy, vShape.x);
-            if (all(lessThanEqual(vClipRadii.zw, vec2(0.0)))) {
-                d_radii_b = 1.0;
-            } else if (vShape.x >= 0.0) {
-                d_radii_b = distance_to_superellipse(clip_relative_pos, vClipRadii.zw, vShape.x);
-            } else {
-                d_radii_b = distance_to_superellipse(clip_relative_pos + vWidths.yx, vClipRadii.xy, vShape.x);
-            }
+            d_radii_b = distance_to_superellipse(clip_relative_pos - vShape2.xy, vShape2.zw, vShape.x);
+
+            d2 = min(d2, debug_circle(clip_relative_pos, vec2(vClipRadii.x, 0.0)));
+            d2 = min(d2, debug_circle(clip_relative_pos, vec2(0.0, vClipRadii.y)));
+            d2 = min(d2, debug_circle(clip_relative_pos - vShape2.xy, vec2(vShape2.z, 0.0)));
+            d2 = min(d2, debug_circle(clip_relative_pos - vShape2.xy, vec2(0.0, vShape2.w)));
         }
         d = max(d_radii_a, -d_radii_b);
     }
@@ -188,5 +218,7 @@ void main(void) {
     vec4 color = mix(vColor0, vColor1, mix_factor);
     oFragColor = color * alpha;
     //oFragColor = debug_sdf(d);
+
+    //if (d2 <= 0.0) oFragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
 #endif
