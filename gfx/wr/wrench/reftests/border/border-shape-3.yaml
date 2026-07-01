@@ -13,4 +13,4 @@ root:
           border-type: normal
           style: solid
           color: white
-          radius: [ 60, 60, 300, 200, 0.2, 0.0, -Inf, 0.7 ]
+          radius: [ 60, 30, 300, 200, 0.2, 0.0, -Inf, -0.7 ]
