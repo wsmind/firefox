@@ -29,9 +29,9 @@ flat varying highp vec4 vClipCenter_Sign;
 // An outer and inner elliptical radii for border
 // corner clipping.
 flat varying highp vec4 vClipRadii;
+flat varying highp vec4 vClipOffsets;
 
 flat varying highp vec3 vShape;
-flat varying highp vec4 vShape2;
 flat varying highp vec2 vWidths;
 
 // Position, scale, and radii of horizontally and vertically adjacent corner clips.
@@ -98,30 +98,47 @@ void main(void) {
     vMixColors.x = mix_colors;
     vPos = size * aPosition.xy;
 
+    //data.shape = abs(data.shape);
     //data.shape_offset = vec2(0.0);
+
+    vec2 clipOffset = vec2(0.0);
+    if (data.shape < 1.0) {
+        clipOffset = max(data.radii, data.widths) + data.shape_offset;
+    }
 
     vColor0 = data.color0;
     vColor1 = data.color1;
-    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + data.shape_offset), clip_sign);
+    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + clipOffset), clip_sign);
     vClipRadii = vec4(data.radii, max(data.radii - data.widths, 0.0));
-    vShape = vec3(data.shape, data.shape_offset);
+    vShape = vec3(data.shape, clipOffset);
     vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
 
-    float n = exp2(data.shape);
-    float q = pow(0.05, n - 1.0);
+    if (data.shape != 1.0) {
+        float n = exp2(abs(data.shape));
+        float q = pow(0.05, n - 1.0);
 
-    // x: dy/dx at (0.05 * data.radii.x, data.radii.y)
-    // y: dx/dy at (data.radii.x, 0.05 * data.radii.y)
-    vec2 grad = -q * vec2(data.radii.y / data.radii.x, data.radii.x / data.radii.y);
+        // x: dy/dx at (0.05 * data.radii.x, data.radii.y)
+        // y: dx/dy at (data.radii.x, 0.05 * data.radii.y)
+        vec2 grad = -q * data.radii.yx / max(data.radii.xy, 0.1);
 
-    // normals
-    vec2 n1 = normalize(vec2(grad.x, -1.0)) * data.widths.y;
-    vec2 n2 = normalize(vec2(-1.0, grad.y)) * data.widths.x;
+        // normals
+        vec2 n1 = normalize(vec2(grad.x, -1.0)) * data.widths.y;
+        vec2 n2 = normalize(vec2(-1.0, grad.y)) * data.widths.x;
 
-    vec2 offset = vec2(n1.x, n2.y); // always negative
-    vec2 shrunkRadii = data.radii + vec2(n2.x, n1.y) - offset;
-    vShape2 = vec4(offset, shrunkRadii);
+        if (data.shape >= 0.0) {
+            vec2 offset = vec2(n1.x, n2.y); // always negative
+            vec2 shrunkRadii = max(data.radii + vec2(n2.x, n1.y) - offset, 0.1);
+            vClipRadii = vec4(data.radii, shrunkRadii);
+            vClipOffsets = vec4(vec2(0.0), offset);
+        } else {
+            // Flip x/y for symmetry
+            vec2 offset = vec2(n1.y, n2.x);
+            vec2 inflatedRadii = max(data.radii + vec2(n2.y, n1.x) - offset, 0.1);
+            vClipRadii = vec4(data.radii, inflatedRadii);
+            vClipOffsets = vec4(vec2(0.0), offset);
+        }
+    }
 
     vec2 horizontal_clip_sign = vec2(-clip_sign.x, clip_sign.y);
     vHorizontalClipCenter_Sign = vec4(aClipParams1.xy +
@@ -175,27 +192,31 @@ void main(void) {
         if (vShape.x == 1.0) {
             d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
             d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
+            d = max(d_radii_a, -d_radii_b);
         } else {
-            // clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
-            // d_radii_a = distance_to_superellipse(clip_relative_pos, vClipRadii.xy, vShape.x);
-            // if (all(lessThanEqual(vClipRadii.zw, vec2(0.0)))) {
-            //     d_radii_b = 1.0;
-            // } else if (vShape.x >= 0.0) {
-            //     d_radii_b = distance_to_superellipse(clip_relative_pos, vClipRadii.zw, vShape.x);
-            // } else {
-            //     d_radii_b = distance_to_superellipse(clip_relative_pos + vWidths.yx, vClipRadii.xy, vShape.x);
-            // }
-            
             clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
-            d_radii_a = distance_to_superellipse(clip_relative_pos, vClipRadii.xy, vShape.x);
-            d_radii_b = distance_to_superellipse(clip_relative_pos - vShape2.xy, vShape2.zw, vShape.x);
+            d_radii_a = distance_to_superellipse(clip_relative_pos - vClipOffsets.xy, vClipRadii.xy, vShape.x);
+            d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, vShape.x);
 
-            d2 = min(d2, debug_circle(clip_relative_pos, vec2(vClipRadii.x, 0.0)));
-            d2 = min(d2, debug_circle(clip_relative_pos, vec2(0.0, vClipRadii.y)));
-            d2 = min(d2, debug_circle(clip_relative_pos - vShape2.xy, vec2(vShape2.z, 0.0)));
-            d2 = min(d2, debug_circle(clip_relative_pos - vShape2.xy, vec2(0.0, vShape2.w)));
+            //d = d_radii_b;
+            d = max(d_radii_a, -d_radii_b);
+
+            // float include = max(clip_relative_pos.y, vClipRadii.x - vWidths.x - clip_relative_pos.x);
+            // d = min(d, include);
+
+            // float include2 = max(clip_relative_pos.x, vClipRadii.y - vWidths.y - clip_relative_pos.y);
+            // d = min(d, include2);
+
+            vec2 include = max(clip_relative_pos.yx, vClipRadii.xy - vWidths.xy - clip_relative_pos.xy);
+            d = min(d, min(include.x, include.y));
+
+            d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(vClipRadii.x, 0.0)));
+            d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(0.0, vClipRadii.y)));
+            d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.zw, vec2(vClipRadii.z, 0.0)));
+            d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.zw, vec2(0.0, vClipRadii.w)));
         }
-        d = max(d_radii_a, -d_radii_b);
+
+        //oFragColor = vec4(1.0, 1.0, 0.0, 1.0);
     }
 
     // And again for horizontally-adjacent corner

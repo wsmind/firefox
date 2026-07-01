@@ -163,8 +163,12 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
     // to the main axes
     if (any(lessThanEqual(q, vec2(0.0)))) {
         vec2 radii = 1.0 / inv_radii;
-        p = radii - p;
-        return min(p.x, p.y);
+        p = p - radii;
+        if (k >= 0.0) {
+            return max(p.x, p.y);
+        } else {
+            return min(-p.x, -p.y);
+        }
     }
 
     // Compute the superellipse function
@@ -191,6 +195,10 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
 }
 
 float distance_to_superellipse(vec2 p, vec2 radii, float k) {
+    if (all(lessThanEqual(radii, vec2(0.01)))) {
+        return sign(k) * min(-p.x, -p.y);
+    }
+
     return distance_to_superellipse_approx(p, inverse_radii(radii), k);
 }
 

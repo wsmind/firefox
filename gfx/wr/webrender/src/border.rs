@@ -551,10 +551,10 @@ pub fn create_border_segments(
         rect.height() - border.radius.top_left.height - border.radius.bottom_left.height,
     );
 
-    let shape_offset_tl = if true {
+    let shape_offset_tl = if border.radius.shape_top_left < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.top + 20.0,
-            non_overlapping_widths.left + 20.0
+            non_overlapping_widths.top,
+            non_overlapping_widths.left
         ).min(LayoutSize::new(
             max_shape_offsets.top,
             max_shape_offsets.left,
@@ -562,10 +562,10 @@ pub fn create_border_segments(
     } else {
         LayoutSize::zero()
     };
-    let shape_offset_tr = if true {
+    let shape_offset_tr = if border.radius.shape_top_right < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.top + 20.0,
-           non_overlapping_widths.right + 20.0
+            non_overlapping_widths.top,
+           non_overlapping_widths.right
         ).min(LayoutSize::new(
             max_shape_offsets.top,
             max_shape_offsets.right,
@@ -573,10 +573,10 @@ pub fn create_border_segments(
     } else {
         LayoutSize::zero()
     };
-    let shape_offset_br = if true {
+    let shape_offset_br = if border.radius.shape_bottom_right < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.bottom + 20.0,
-           non_overlapping_widths.right + 20.0
+            non_overlapping_widths.bottom,
+           non_overlapping_widths.right
         ).min(LayoutSize::new(
             max_shape_offsets.bottom,
             max_shape_offsets.right,
@@ -584,10 +584,10 @@ pub fn create_border_segments(
     } else {
         LayoutSize::zero()
     };
-    let shape_offset_bl = if true {
+    let shape_offset_bl = if border.radius.shape_bottom_left < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.bottom + 20.0,
-           non_overlapping_widths.left + 20.0
+            non_overlapping_widths.bottom,
+           non_overlapping_widths.left
         ).min(LayoutSize::new(
             max_shape_offsets.bottom,
             max_shape_offsets.left,
@@ -1143,7 +1143,7 @@ fn add_edge_segment(
             side0: side.into(),
             side1: side.into(),
             radius: LayoutSizeAu::zero(),
-            shape: 0,
+            shape: 1.0f32.to_bits(),
             shape_offset: LayoutSizeAu::zero(),
             size: size.to_au(),
             segment,
