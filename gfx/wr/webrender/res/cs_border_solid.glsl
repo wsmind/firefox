@@ -192,7 +192,6 @@ void main(void) {
         if (vShape.x == 1.0) {
             d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
             d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
-            d = max(d_radii_a, -d_radii_b);
         } else {
             clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
             d_radii_a = distance_to_superellipse(clip_relative_pos - vClipOffsets.xy, vClipRadii.xy, vShape.x);
@@ -202,15 +201,15 @@ void main(void) {
             vec2 included_region = vClipRadii.xy - vWidths.xy - clip_relative_pos.xy;
             d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
 
-            d = max(d_radii_a, -d_radii_b);
-
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(vClipRadii.x, 0.0)));
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(0.0, vClipRadii.y)));
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.zw, vec2(vClipRadii.z, 0.0)));
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.zw, vec2(0.0, vClipRadii.w)));
         }
 
-        //oFragColor = vec4(1.0, 1.0, 0.0, 1.0);
+        d = max(d_radii_a, -d_radii_b);
+
+        oFragColor = vec4(1.0, 1.0, 0.0, 1.0);
     }
 
     // And again for horizontally-adjacent corner

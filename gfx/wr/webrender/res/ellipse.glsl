@@ -195,6 +195,10 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
 }
 
 float distance_to_superellipse(vec2 p, vec2 radii, float k) {
+    if (any(lessThan(radii, vec2(1.0)))) {
+        return -1.0;
+    }
+
     return distance_to_superellipse_approx(p, inverse_radii(radii), k);
 }
 
