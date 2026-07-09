@@ -170,6 +170,8 @@ impl<'a> SceneBuilder<'a> {
             .translate(*box_offset)
             .inflate(spread_amount, spread_amount);
 
+        let shadow_inset = LayoutSideOffsets::new_all_same(-spread_amount);
+
         // If blur radius is zero, we can use a fast path with
         // no blur applied.
         if blur_radius == 0.0 {
@@ -179,7 +181,7 @@ impl<'a> SceneBuilder<'a> {
             }
 
             let mut clips = Vec::with_capacity(2);
-            let (final_prim_rect, clip_radius) = match clip_mode {
+            let (final_prim_rect, clip_radius, clip_inset) = match clip_mode {
                 BoxShadowClipMode::Outset => {
                     if shadow_rect.is_empty() {
                         return;
@@ -196,6 +198,7 @@ impl<'a> SceneBuilder<'a> {
                         key: ClipItemKey {
                             kind: ClipItemKeyKind::rounded_rect(
                                 border_radius,
+                                LayoutSideOffsets::zero(),
                                 ClipMode::ClipOut,
                             ),
                         },
@@ -204,7 +207,7 @@ impl<'a> SceneBuilder<'a> {
                         snap_outset: Au::from_f32_px(spread_radius),
                     });
 
-                    (shadow_rect, shadow_radius)
+                    (shadow_rect, shadow_radius, shadow_inset)
                 }
                 BoxShadowClipMode::Inset => {
                     if !shadow_rect.is_empty() {
@@ -215,6 +218,7 @@ impl<'a> SceneBuilder<'a> {
                             key: ClipItemKey {
                                 kind: ClipItemKeyKind::rounded_rect(
                                     shadow_radius,
+                                    shadow_inset,
                                     ClipMode::ClipOut,
                                 ),
                             },
@@ -224,7 +228,7 @@ impl<'a> SceneBuilder<'a> {
                         });
                     }
 
-                    (prim_info.rect, border_radius)
+                    (prim_info.rect, border_radius, LayoutSideOffsets::zero())
                 }
             };
 
@@ -235,6 +239,7 @@ impl<'a> SceneBuilder<'a> {
                 key: ClipItemKey {
                     kind: ClipItemKeyKind::rounded_rect(
                         clip_radius,
+                        clip_inset,
                         ClipMode::Clip,
                     ),
                 },

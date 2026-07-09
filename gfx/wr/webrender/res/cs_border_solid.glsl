@@ -114,30 +114,13 @@ void main(void) {
     vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
 
-    if (data.shape != 1.0) {
-        float n = exp2(abs(data.shape));
-        float q = pow(0.05, n - 1.0);
-
-        // x: dy/dx at (0.05 * data.radii.x, data.radii.y)
-        // y: dx/dy at (data.radii.x, 0.05 * data.radii.y)
-        vec2 grad = -q * data.radii.yx / max(data.radii.xy, 0.1);
-
-        // normals
-        vec2 n1 = normalize(vec2(grad.x, -1.0)) * data.widths.y;
-        vec2 n2 = normalize(vec2(-1.0, grad.y)) * data.widths.x;
-
-        if (data.shape >= 0.0) {
-            vec2 offset = vec2(n1.x, n2.y); // always negative
-            vec2 shrunkRadii = max(data.radii + vec2(n2.x, n1.y) - offset, 0.1);
-            vClipRadii = vec4(data.radii, shrunkRadii);
-            vClipOffsets = vec4(vec2(0.0), offset);
-        } else {
-            // Flip x/y for symmetry
-            vec2 offset = vec2(n1.y, n2.x);
-            vec2 inflatedRadii = max(data.radii + vec2(n2.y, n1.x) - offset, 0.1);
-            vClipRadii = vec4(data.radii, inflatedRadii);
-            vClipOffsets = vec4(vec2(0.0), offset);
-        }
+    if (data.shape != 1.0)
+    {
+        vec2 reference_radii = (data.radii == vec2(0.0)) ? vec2(0.0) : data.radii + data.inset;
+        vec4 contour1 = compute_contoured_superellipse(reference_radii, data.shape, data.inset);
+        vec4 contour2 = compute_contoured_superellipse(reference_radii, data.shape, data.inset + data.widths);
+        vClipOffsets = vec4(contour1.xy, contour2.xy);
+        vClipRadii = vec4(contour1.zw, contour2.zw);
     }
 
     vec2 horizontal_clip_sign = vec2(-clip_sign.x, clip_sign.y);

@@ -757,6 +757,7 @@ class DisplayListBuilder final {
                   bool aIsBackfaceVisible, const wr::LayoutSideOffsets& aWidths,
                   const Range<const wr::BorderSide>& aSides,
                   const wr::BorderRadius& aRadius,
+                  const wr::LayoutSideOffsets& aInset = EmptyLayoutSideOffsets(),
                   wr::AntialiasBorder = wr::AntialiasBorder::Yes);
 
   void PushBorderImage(const wr::LayoutRect& aBounds,

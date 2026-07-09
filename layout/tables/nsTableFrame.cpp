@@ -6434,7 +6434,7 @@ static void AdjustAndPushBevel(wr::DisplayListBuilder& aBuilder,
   // It's important to _not_ anti-alias the bevel, because otherwise we wouldn't
   // be able bevel to sides of the same color without bleeding in the middle.
   aBuilder.PushBorder(bevelRect, bevelRect, aBackfaceIsVisible, borderWidths,
-                      wrsides, wr::EmptyBorderRadius(),
+                      wrsides, wr::EmptyBorderRadius(), wr::EmptyLayoutSideOffsets(),
                       wr::AntialiasBorder::No);
 }
 

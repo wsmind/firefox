@@ -7,6 +7,7 @@
 
 #include "mozilla/AlreadyAddRefed.h"
 #include "nsRect.h"
+#include "nsMargin.h"
 #include "nsTArray.h"
 
 class gfxContext;
@@ -45,6 +46,8 @@ class DisplayItemClip {
     // Indices into mRadii are the HalfCorner values in gfx/2d/Types.h
     nsRectCornerRadii mRadii;
 
+    nsMargin mInset;
+
     RoundedRect operator+(const nsPoint& aOffset) const {
       RoundedRect r = *this;
       r.mRect += aOffset;
@@ -68,7 +71,8 @@ class DisplayItemClip {
   DisplayItemClip() : mHaveClipRect(false) {}
 
   void SetTo(const nsRect& aRect);
-  void SetTo(const nsRect& aRect, const nsRectCornerRadii* aRadii);
+  void SetTo(const nsRect& aRect, const nsRectCornerRadii* aRadii,
+             const nsMargin* aInset = nullptr);
   void SetTo(const nsRect& aRect, const nsRect& aRoundedRect,
              const nsRectCornerRadii* aRadii);
   void IntersectWith(const DisplayItemClip& aOther);

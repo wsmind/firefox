@@ -555,6 +555,7 @@ fn prepare_prim_for_render(
                         RenderTaskKind::new_rounded_rect_mask(
                             minimal_shadow_rect,
                             shadow_radius,
+                            LayoutSideOffsets::new_all_same(-shadow_data.spread_amount),
                             ClipMode::Clip,
                             device_pixel_scale_for_task,
                         ),
@@ -2317,7 +2318,7 @@ fn write_brush_segment_description(
         }
 
         let (local_clip_rect, radius, mode) = match clip_node.item.kind {
-            ClipItemKind::RoundedRectangle { radius, mode } => {
+            ClipItemKind::RoundedRectangle { radius, inset: _, mode } => {
                 let radius = clamped_radius(&radius, clip_instance.clip_rect.size());
                 (clip_instance.clip_rect, Some(radius), mode)
             }

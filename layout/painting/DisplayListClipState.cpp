@@ -65,10 +65,13 @@ static void ApplyClip(nsDisplayListBuilder* aBuilder,
 }
 
 void DisplayListClipState::ClipContainingBlockDescendants(
-    nsDisplayListBuilder* aBuilder, const nsRect& aRect,
-    const nsRectCornerRadii* aRadii, DisplayItemClipChain& aClipChainOnStack) {
+    nsDisplayListBuilder* aBuilder,
+    const nsRect& aRect,
+    const nsRectCornerRadii* aRadii,
+    const nsMargin* aInset,
+    DisplayItemClipChain& aClipChainOnStack) {
   if (aRadii) {
-    aClipChainOnStack.mClip.SetTo(aRect, aRadii);
+    aClipChainOnStack.mClip.SetTo(aRect, aRadii, aInset);
   } else {
     aClipChainOnStack.mClip.SetTo(aRect);
   }
@@ -143,6 +146,7 @@ void DisplayListClipState::ClipContainingBlockDescendantsToContentBox(
   // radius.
   ClipContainingBlockDescendants(aBuilder, clipRect,
                                  hasBorderRadius ? &radii : nullptr,
+                                 nullptr,
                                  aClipChainOnStack);
 }
 

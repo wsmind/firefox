@@ -791,6 +791,8 @@ static nsCSSBorderRenderer ConstructBorderRenderer(
     borderColors[i] = aStyleBorder.BorderColorFor(i).CalcColor(*aStyle);
   }
 
+  Margin borderInset(0.0f, 0.0f, 0.0f, 0.0f);
+
   PrintAsFormatString(
       " borderStyles: %d %d %d %d\n", static_cast<int>(borderStyles[0]),
       static_cast<int>(borderStyles[1]), static_cast<int>(borderStyles[2]),
@@ -798,7 +800,7 @@ static nsCSSBorderRenderer ConstructBorderRenderer(
 
   return nsCSSBorderRenderer(
       aPresContext, aDrawTarget, dirtyRect, joinedBorderAreaPx, borderStyles,
-      borderWidths, bgRadii, borderColors, !aForFrame->BackfaceIsHidden(),
+      borderWidths, bgRadii, borderInset, borderColors, !aForFrame->BackfaceIsHidden(),
       *aNeedsClip ? Some(NSRectToRect(aBorderArea, oneDevPixel)) : Nothing());
 }
 
@@ -984,6 +986,8 @@ nsCSSRendering::CreateBorderRendererForNonThemedOutline(
       Float(width) / oneDevPixel, Float(width) / oneDevPixel,
       Float(width) / oneDevPixel, Float(width) / oneDevPixel);
 
+  Margin outlineInset = -outlineWidths;
+
   // convert the radii
   nsRectCornerRadii twipsRadii;
 
@@ -995,10 +999,16 @@ nsCSSRendering::CreateBorderRendererForNonThemedOutline(
     const auto devPxOffset = LayoutDeviceSize::FromAppUnits(
         effectiveOffset, aPresContext->AppUnitsPerDevPixel());
 
-    const Margin widths(outlineWidths.top + devPxOffset.Height(),
-                        outlineWidths.right + devPxOffset.Width(),
-                        outlineWidths.bottom + devPxOffset.Height(),
-                        outlineWidths.left + devPxOffset.Width());
+    const Margin devPxOffsetMargin(
+        devPxOffset.Height(),
+        devPxOffset.Width(),
+        devPxOffset.Height(),
+        devPxOffset.Width()
+    );
+
+    outlineInset -= devPxOffsetMargin;
+
+    const Margin widths = outlineWidths + devPxOffsetMargin;
     nsCSSBorderRenderer::ComputeOuterRadii(innerRadii, widths, &outlineRadii);
   }
 
@@ -1016,7 +1026,8 @@ nsCSSRendering::CreateBorderRendererForNonThemedOutline(
 
   return Some(nsCSSBorderRenderer(
       aPresContext, aDrawTarget, dirtyRect, oRect, outlineStyles, outlineWidths,
-      outlineRadii, outlineColors, !aForFrame->BackfaceIsHidden(), Nothing()));
+      outlineRadii, outlineInset, outlineColors, !aForFrame->BackfaceIsHidden(),
+      Nothing()));
 }
 
 void nsCSSRendering::PaintNonThemedOutline(nsPresContext* aPresContext,
@@ -1057,6 +1068,8 @@ nsCSSBorderRenderer nsCSSRendering::GetBorderRendererForFocus(
       StyleBorderStyle::Dotted, StyleBorderStyle::Dotted};
   nscolor focusColors[4] = {aColor, aColor, aColor, aColor};
 
+  Margin focusInset(0.0f, 0.0f, 0.0f, 0.0f);
+
   // Because this renders a dotted border, the background color
   // should not be used.  Therefore, we provide a value that will
   // be blatantly wrong if it ever does get used.  (If this becomes
@@ -1064,7 +1077,7 @@ nsCSSBorderRenderer nsCSSRendering::GetBorderRendererForFocus(
   // to a ComputedStyle and can use the same logic that PaintBorder
   // and PaintOutline do.)
   return nsCSSBorderRenderer(pc, aDrawTarget, focusRect, focusRect, focusStyles,
-                             focusWidths, focusRadii, focusColors,
+                             focusWidths, focusRadii, focusInset, focusColors,
                              !aForFrame->BackfaceIsHidden(), Nothing());
 }
 

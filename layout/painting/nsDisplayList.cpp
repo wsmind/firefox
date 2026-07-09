@@ -3516,7 +3516,7 @@ static void PushBorderAreaClipOut(
   }
 
   wr::ComplexClipRegion region = wr::ToComplexClipRegion(
-      rect, radii, aFrame->PresContext()->AppUnitsPerDevPixel());
+      rect, radii, nsMargin(), aFrame->PresContext()->AppUnitsPerDevPixel());
   region.mode = wr::ClipMode::ClipOut;
   wr::WrClipId clipId = aBuilder.DefineRoundedRectClip(Nothing(), region);
   wr::WrClipChainId chain = aBuilder.DefineClipChain(
@@ -8339,7 +8339,7 @@ static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
                                        radii)) {
         clipId = aBuilder.DefineRoundedRectClip(
             Nothing(),
-            wr::ToComplexClipRegion(rect, radii, appUnitsPerDevPixel));
+            wr::ToComplexClipRegion(rect, radii, nsMargin(), appUnitsPerDevPixel));
       } else {
         clipId = aBuilder.DefineRectClip(
             Nothing(), wr::ToLayoutRect(LayoutDeviceRect::FromAppUnits(
@@ -8372,7 +8372,7 @@ static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
 
       clipId = aBuilder.DefineRoundedRectClip(
           Nothing(), wr::ToComplexClipRegion(ellipseRect, ellipseRadii,
-                                             appUnitsPerDevPixel));
+                                             nsMargin(), appUnitsPerDevPixel));
 
       break;
     }
@@ -8609,7 +8609,7 @@ bool nsDisplayBackdropFilters::CreateWebRenderCommands(
       mBackdropRect, mFrame->PresContext()->AppUnitsPerDevPixel());
 
   wr::ComplexClipRegion region =
-      wr::ToComplexClipRegion(clip.mBGClipArea, clip.mRadii,
+      wr::ToComplexClipRegion(clip.mBGClipArea, clip.mRadii, nsMargin(),
                               mFrame->PresContext()->AppUnitsPerDevPixel());
 
   aBuilder.PushBackdropFilter(wr::ToLayoutRect(bounds), region,

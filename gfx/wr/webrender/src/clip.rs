@@ -877,7 +877,7 @@ impl ClipTreeBuilder {
 
                 match clip_info.key.kind {
                     ClipItemKeyKind::Rectangle(ClipMode::Clip) => {}
-                    ClipItemKeyKind::RoundedRectangle(_, ClipMode::Clip) => {
+                    ClipItemKeyKind::RoundedRectangle(_, _, ClipMode::Clip) => {
                         if !spatial_tree.is_root_coord_system(clip_entry.spatial_node_index) {
                             return false;
                         }
@@ -1151,9 +1151,10 @@ impl From<ClipItemKey> for ClipNode {
             ClipItemKeyKind::Rectangle(mode) => {
                 ClipItemKind::Rectangle { mode }
             }
-            ClipItemKeyKind::RoundedRectangle(radius, mode) => {
+            ClipItemKeyKind::RoundedRectangle(radius, inset, mode) => {
                 ClipItemKind::RoundedRectangle {
                     radius: radius.into(),
+                    inset: LayoutSideOffsets::from_au(inset),
                     mode,
                 }
             }
@@ -1660,7 +1661,7 @@ impl ClipStore {
                 // Normal Clip rects are already handled by the clip-chain pic_coverage_rect,
                 // no need to do anything here
                 ClipItemKind::Rectangle { mode: ClipMode::Clip, .. } => {}
-                ClipItemKind::RoundedRectangle { mode: ClipMode::Clip, radius } => {
+                ClipItemKind::RoundedRectangle { mode: ClipMode::Clip, radius, inset: _ } => {
                     // Get an inner rect for the rounded-rect clip
                     let radius = clamped_radius(&radius, clip_instance.clip_rect.size());
                     let local_inner_rect = match extract_inner_rect_safe(&clip_instance.clip_rect, &radius) {
@@ -1890,7 +1891,7 @@ impl Default for ClipStore {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub enum ClipItemKeyKind {
     Rectangle(ClipMode),
-    RoundedRectangle(BorderRadiusAu, ClipMode),
+    RoundedRectangle(BorderRadiusAu, LayoutSideOffsetsAu, ClipMode),
     ImageMask(ImageKey, Option<PolygonDataHandle>),
 }
 
@@ -1899,12 +1900,13 @@ impl ClipItemKeyKind {
         ClipItemKeyKind::Rectangle(mode)
     }
 
-    pub fn rounded_rect(radii: BorderRadius, mode: ClipMode) -> Self {
+    pub fn rounded_rect(radii: BorderRadius, inset: LayoutSideOffsets, mode: ClipMode) -> Self {
         if radii.is_zero() {
             ClipItemKeyKind::rectangle(mode)
         } else {
             ClipItemKeyKind::RoundedRectangle(
                 radii.into(),
+                inset.to_au(),
                 mode,
             )
         }
@@ -1972,6 +1974,7 @@ pub enum ClipItemKind {
     },
     RoundedRectangle {
         radius: BorderRadius,
+        inset: LayoutSideOffsets,
         mode: ClipMode,
     },
     Image {
@@ -2043,7 +2046,7 @@ impl ClipItemKind {
             ClipItemKind::Rectangle { mode } => {
                 (clip_rect, Some(clip_rect), mode)
             }
-            ClipItemKind::RoundedRectangle { ref radius, mode } => {
+            ClipItemKind::RoundedRectangle { ref radius, inset: _, mode } => {
                 let clamped = clamped_radius(radius, clip_rect.size());
                 let inner_clip_rect = extract_inner_rect_safe(&clip_rect, &clamped);
                 (clip_rect, inner_clip_rect, mode)
@@ -2123,7 +2126,7 @@ impl ClipItemKind {
                     }
                 }
             }
-            ClipItemKind::RoundedRectangle { ref radius, mode: ClipMode::Clip } => {
+            ClipItemKind::RoundedRectangle { ref radius, inset: _, mode: ClipMode::Clip } => {
                 let rect = clip_rect;
                 let radius = clamped_radius(radius, rect.size());
                 // TODO(gw): Consider caching this in the ClipNode
@@ -2141,7 +2144,7 @@ impl ClipItemKind {
                     }
                 }
             }
-            ClipItemKind::RoundedRectangle { ref radius, mode: ClipMode::ClipOut } => {
+            ClipItemKind::RoundedRectangle { ref radius, inset: _, mode: ClipMode::ClipOut } => {
                 let rect = clip_rect;
                 let radius = clamped_radius(radius, rect.size());
                 // TODO(gw): Consider caching this in the ClipNode
