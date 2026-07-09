@@ -263,3 +263,28 @@ float distance_to_shaped_rect(
                signed_distance_rect(pos, rect_bounds.xy, rect_bounds.zw));
 }
 #endif
+
+// returns an offset (x,y), and new radii (zw)
+vec4 compute_contoured_superellipse(vec2 radii, float shape, vec2 inset) {
+    float n = exp2(abs(shape));
+    float q = pow(0.05, n - 1.0);
+
+    // x: dy/dx at (0.05 * radii.x, radii.y)
+    // y: dx/dy at (radii.x, 0.05 * radii.y)
+    vec2 grad = -q * radii.yx / max(radii.xy, 0.1);
+
+    // normals
+    vec2 n1 = normalize(vec2(grad.x, -1.0)) * inset.y;
+    vec2 n2 = normalize(vec2(-1.0, grad.y)) * inset.x;
+
+    if (shape >= 0.0) {
+        vec2 offset = vec2(n1.x, n2.y); // always negative
+        vec2 shrunkRadii = max(radii + vec2(n2.x, n1.y) - offset, 0.1);
+        return vec4(offset, shrunkRadii);
+    } else {
+        // Flip x/y for symmetry
+        vec2 offset = vec2(n1.y, n2.x);
+        vec2 inflatedRadii = max(radii + vec2(n2.y, n1.x) - offset, 0.1);
+        return vec4(offset, inflatedRadii);
+    }
+}

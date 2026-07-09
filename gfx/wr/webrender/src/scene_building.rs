@@ -2710,6 +2710,7 @@ impl<'a> SceneBuilder<'a> {
         let item = ClipItemKey {
             kind: ClipItemKeyKind::rounded_rect(
                 clip.radii,
+                clip.inset,
                 clip.mode,
             ),
         };

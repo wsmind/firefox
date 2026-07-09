@@ -76,6 +76,7 @@ class DisplayListClipState {
   void ClipContainingBlockDescendants(nsDisplayListBuilder* aBuilder,
                                       const nsRect& aRect,
                                       const nsRectCornerRadii* aRadii,
+                                      const nsMargin* aInset,
                                       DisplayItemClipChain& aClipChainOnStack);
 
   void ClipToDisplayPort(nsDisplayListBuilder* aBuilder, const nsRect& aRect,
@@ -166,13 +167,15 @@ class DisplayListClipState::AutoSaveRestore {
    * the result, stored in aClipOnStack.
    */
   void ClipContainingBlockDescendants(
-      const nsRect& aRect, const nsRectCornerRadii* aRadii = nullptr) {
+      const nsRect& aRect,
+      const nsRectCornerRadii* aRadii = nullptr,
+      const nsMargin* aInset = nullptr) {
     NS_ASSERTION(!mRestored, "Already restored!");
     NS_ASSERTION(!mClipUsed, "mClip already used");
 #ifdef DEBUG
     mClipUsed = true;
 #endif
-    mState.ClipContainingBlockDescendants(mBuilder, aRect, aRadii, mClipChain);
+    mState.ClipContainingBlockDescendants(mBuilder, aRect, aRadii, aInset, mClipChain);
   }
 
   void ClipToDisplayPort(const nsRect& aRect) {
@@ -287,14 +290,15 @@ class DisplayListClipState::AutoClipMultiple : public AutoSaveRestore {
    * the result, stored in aClipOnStack.
    */
   void ClipContainingBlockDescendantsExtra(const nsRect& aRect,
-                                           const nsRectCornerRadii* aRadii) {
+                                           const nsRectCornerRadii* aRadii,
+                                           const nsMargin* aInset) {
     NS_ASSERTION(!mRestored, "Already restored!");
     NS_ASSERTION(!mExtraClipUsed, "mExtraClip already used");
 #ifdef DEBUG
     mExtraClipUsed = true;
 #endif
     mState.ClipContainingBlockDescendants(mBuilder, aRect, aRadii,
-                                          mExtraClipChain);
+                                          aInset, mExtraClipChain);
   }
 
  protected:

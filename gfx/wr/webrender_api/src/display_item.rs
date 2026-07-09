@@ -418,6 +418,7 @@ pub struct NormalBorder {
     pub top: BorderSide,
     pub bottom: BorderSide,
     pub radius: BorderRadius,
+    pub inset: LayoutSideOffsets,
     /// Whether to apply anti-aliasing on the border corners.
     ///
     /// Note that for this to be `false` and work, this requires the borders to
@@ -2124,6 +2125,10 @@ pub struct ComplexClipRegion {
     pub rect: LayoutRect,
     /// Border radii of this rectangle.
     pub radii: BorderRadius,
+    /// Accumulated inset from the reference shape, in case of inflation/deflation.
+    /// The inset is expected to be already baked in rect and radii, but is necessary
+    /// for the correct computation of corner shapes.
+    pub inset: LayoutSideOffsets,
     /// Whether we are clipping inside or outside
     /// the region.
     pub mode: ClipMode,
@@ -2214,9 +2219,10 @@ impl ComplexClipRegion {
     pub fn new(
         rect: LayoutRect,
         radii: BorderRadius,
+        inset: LayoutSideOffsets,
         mode: ClipMode,
     ) -> Self {
-        ComplexClipRegion { rect, radii, mode }
+        ComplexClipRegion { rect, radii, inset, mode }
     }
 }
 

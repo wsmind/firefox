@@ -56,6 +56,7 @@ pub struct BorderSegmentCacheKey {
     pub radius: LayoutSizeAu,
     pub shape: u32,
     pub shape_offset: LayoutSizeAu,
+    pub inset: LayoutSizeAu,
     pub side0: BorderSideAu,
     pub side1: BorderSideAu,
     pub segment: BorderSegment,
@@ -543,6 +544,11 @@ pub fn create_border_segments(
         widths.left - overlap.width / 2.0,
     );
 
+    let inset_tl = LayoutSize::new(border.inset.left, border.inset.top);
+    let inset_tr = LayoutSize::new(border.inset.right, border.inset.top);
+    let inset_br = LayoutSize::new(border.inset.right, border.inset.bottom);
+    let inset_bl = LayoutSize::new(border.inset.left, border.inset.bottom);
+
     let max_shape_offsets = LayoutSideOffsets::new(
         rect.width() - border.radius.top_left.width - border.radius.top_right.width,
         rect.height() - border.radius.top_right.height - border.radius.bottom_right.height,
@@ -552,8 +558,8 @@ pub fn create_border_segments(
 
     let shape_offset_tl = if border.radius.shape_top_left < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.top,
-            non_overlapping_widths.left
+            non_overlapping_widths.top + inset_tl.height.max(0.0),
+            non_overlapping_widths.left + inset_tl.width.max(0.0),
         ).min(LayoutSize::new(
             max_shape_offsets.top,
             max_shape_offsets.left,
@@ -563,8 +569,8 @@ pub fn create_border_segments(
     };
     let shape_offset_tr = if border.radius.shape_top_right < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.top,
-           non_overlapping_widths.right
+            non_overlapping_widths.top + inset_tr.height.max(0.0),
+           non_overlapping_widths.right + inset_tr.width.max(0.0),
         ).min(LayoutSize::new(
             max_shape_offsets.top,
             max_shape_offsets.right,
@@ -574,8 +580,8 @@ pub fn create_border_segments(
     };
     let shape_offset_br = if border.radius.shape_bottom_right < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.bottom,
-           non_overlapping_widths.right
+            non_overlapping_widths.bottom + inset_br.height.max(0.0),
+           non_overlapping_widths.right + inset_br.width.max(0.0),
         ).min(LayoutSize::new(
             max_shape_offsets.bottom,
             max_shape_offsets.right,
@@ -585,8 +591,8 @@ pub fn create_border_segments(
     };
     let shape_offset_bl = if border.radius.shape_bottom_left < 1.0 {
         LayoutSize::new(
-            non_overlapping_widths.bottom,
-           non_overlapping_widths.left
+            non_overlapping_widths.bottom + inset_bl.height.max(0.0),
+           non_overlapping_widths.left + inset_bl.width.max(0.0),
         ).min(LayoutSize::new(
             max_shape_offsets.bottom,
             max_shape_offsets.left,
@@ -714,6 +720,7 @@ pub fn create_border_segments(
         border.radius.top_left,
         border.radius.shape_top_left,
         shape_offset_tl,
+        inset_tl,
         BorderSegment::TopLeft,
         EdgeMask::TOP | EdgeMask::LEFT,
         rect.top_right(),
@@ -742,6 +749,7 @@ pub fn create_border_segments(
         border.radius.top_right,
         border.radius.shape_top_right,
         shape_offset_tr,
+        inset_tr,
         BorderSegment::TopRight,
         EdgeMask::TOP | EdgeMask::RIGHT,
         rect.min,
@@ -770,6 +778,7 @@ pub fn create_border_segments(
         border.radius.bottom_right,
         border.radius.shape_bottom_right,
         shape_offset_br,
+        inset_br,
         BorderSegment::BottomRight,
         EdgeMask::BOTTOM | EdgeMask::RIGHT,
         rect.bottom_left(),
@@ -798,6 +807,7 @@ pub fn create_border_segments(
         border.radius.bottom_left,
         border.radius.shape_bottom_left,
         shape_offset_bl,
+        inset_bl,
         BorderSegment::BottomLeft,
         EdgeMask::BOTTOM | EdgeMask::LEFT,
         rect.max,
@@ -821,6 +831,7 @@ fn add_segment(
     radius: DeviceSize,
     shape: f32,
     shape_offset: DeviceSize,
+    inset: DeviceSize,
     do_aa: bool,
     h_adjacent_corner_outer: DevicePoint,
     h_adjacent_corner_radius: DeviceSize,
@@ -841,6 +852,7 @@ fn add_segment(
         radius,
         shape,
         shape_offset,
+        inset,
     };
 
     let base_instance = BorderInstance {
@@ -967,6 +979,7 @@ fn add_corner_segment(
     radius: LayoutSize,
     shape: f32,
     shape_offset: LayoutSize,
+    inset: LayoutSize,
     segment: BorderSegment,
     edge_flags: EdgeMask,
     h_adjacent_corner_outer: LayoutPoint,
@@ -1078,6 +1091,7 @@ fn add_corner_segment(
             radius: radius.to_au(),
             shape: shape.to_bits(),
             shape_offset: shape_offset.to_au(),
+            inset: inset.to_au(),
             size: widths.to_au(),
             h_adjacent_corner_outer: (h_corner_outer - image_rect.min).to_point().to_au(),
             h_adjacent_corner_radius: h_corner_radius.to_au(),
@@ -1144,6 +1158,7 @@ fn add_edge_segment(
             radius: LayoutSizeAu::zero(),
             shape: 1.0f32.to_bits(),
             shape_offset: LayoutSizeAu::zero(),
+            inset: LayoutSizeAu::zero(),
             size: size.to_au(),
             segment,
             h_adjacent_corner_outer: LayoutPointAu::zero(),
@@ -1195,6 +1210,7 @@ pub fn build_border_instances(
     let radius = (LayoutSize::from_au(cache_key.radius) * scale).ceil();
     let shape = f32::from_bits(cache_key.shape);
     let shape_offset = (LayoutSize::from_au(cache_key.shape_offset) * scale).ceil();
+    let inset = (LayoutSize::from_au(cache_key.inset) * scale).ceil();
 
     let h_corner_outer = (LayoutPoint::from_au(cache_key.h_adjacent_corner_outer) * scale).round();
     let h_corner_radius = (LayoutSize::from_au(cache_key.h_adjacent_corner_radius) * scale).ceil();
@@ -1213,6 +1229,7 @@ pub fn build_border_instances(
         radius,
         shape,
         shape_offset,
+        inset,
         border.do_aa,
         h_corner_outer,
         h_corner_radius,

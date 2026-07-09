@@ -4145,6 +4145,7 @@ pub extern "C" fn wr_dp_push_border(
     bottom: BorderSide,
     left: BorderSide,
     radius: BorderRadius,
+    inset: LayoutSideOffsets,
 ) {
     debug_assert!(unsafe { is_in_main_thread() });
 
@@ -4154,6 +4155,7 @@ pub extern "C" fn wr_dp_push_border(
         top,
         bottom,
         radius,
+        inset,
         do_aa: do_aa == AntialiasBorder::Yes,
     });
 
