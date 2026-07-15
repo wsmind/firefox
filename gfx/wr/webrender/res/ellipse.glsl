@@ -172,7 +172,6 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
     // to the main axes
     if (any(lessThanEqual(q, vec2(0.0)))) {
         vec2 radii = 1.0 / inv_radii;
-        //float convex_half_corner = compute_superellipse_half_corner(k);
         //p = p - radii * convex_half_corner;
 
         float q2 = pow(0.05, n - 1.0);
@@ -182,10 +181,15 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
         vec2 grad = -q2 * radii.yx / max(radii.xy, 0.1);
 
         // normals
-        vec2 n1 = normalize(vec2(grad.x, -1.0));
-        vec2 n2 = normalize(vec2(-1.0, grad.y));
+        // vec2 n1 = normalize(vec2(grad.x, -1.0));
+        // vec2 n2 = normalize(vec2(-1.0, grad.y));
         //vec2 n1 = normalize(radii.yx * vec2(convex_half_corner - 1.0, -convex_half_corner));
         //vec2 n2 = normalize(radii.yx * vec2(-convex_half_corner, convex_half_corner - 1.0));
+        float convex_half_corner = compute_superellipse_half_corner(k);
+        vec2 tangent = vec2(0.5 - 2.0 * convex_half_corner, 2.0 * convex_half_corner - 1.5);
+        vec2 n1 = normalize(radii.yx * tangent.yx);
+        vec2 n2 = normalize(radii.yx * tangent.xy);
+
         float d1 = dot(p, n1) - n1.y * radii.y;
         float d2 = dot(p, n2) - n2.x * radii.x;
         if (k >= 0.0) {
@@ -306,8 +310,11 @@ vec4 compute_contoured_superellipse(vec2 radii, float shape, vec2 inset) {
     float convex_half_corner = compute_superellipse_half_corner(shape);
     // (ah, bh) - (0, b) => (ah, bh - b) => (a, b) * (h, h - 1)
     // (y, -x)
-    vec2 n1 = normalize(radii * vec2(convex_half_corner - 1.0, -convex_half_corner)) * inset.y;
-    vec2 n2 = normalize(radii * vec2(-convex_half_corner, convex_half_corner - 1.0)) * inset.x;
+    //vec2 n1 = normalize(radii * vec2(convex_half_corner - 1.0, -convex_half_corner)) * inset.y;
+    //vec2 n2 = normalize(radii * vec2(-convex_half_corner, convex_half_corner - 1.0)) * inset.x;
+    vec2 tangent = vec2(0.5 - 2.0 * convex_half_corner, 2.0 * convex_half_corner - 1.5);
+    vec2 n1 = normalize(radii.yx * tangent.yx) * inset.y;
+    vec2 n2 = normalize(radii.yx * tangent.xy) * inset.x;
 
     if (shape >= 0.0) {
         vec2 offset = vec2(n1.x, n2.y); // always negative
