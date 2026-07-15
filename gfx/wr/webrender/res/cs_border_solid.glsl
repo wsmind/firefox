@@ -181,8 +181,8 @@ void main(void) {
             d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, vShape.x);
 
             // exclude the straight border part from the subtracted region
-            vec2 included_region = vClipRadii.xy - vWidths.xy - clip_relative_pos.xy;
-            d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
+            // vec2 included_region = vClipRadii.xy - vWidths.xy - clip_relative_pos.xy;
+            // d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
 
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(vClipRadii.x, 0.0)));
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(0.0, vClipRadii.y)));

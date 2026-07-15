@@ -17,6 +17,15 @@ vec2 inverse_radii(vec2 radii) {
     return 1.0 / max(radii, 1.0e-3);
 }
 
+float compute_superellipse_half_corner(float shape) {
+    shape = min(2.0, abs(shape));
+
+    float n = exp2(shape);
+    float convex_half_corner = pow(0.5, 1.0 / n);
+
+    return convex_half_corner;
+}
+
 #ifdef WR_FRAGMENT_SHADER
 
 // One iteration of Newton's method on the 2D equation of an ellipse:
@@ -134,8 +143,8 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
     // +x,+y projection so the line distance matches geometry inside
     // the box (where p has negative components).
     if (k == 0.0) {
-        vec2 pp = max(p, vec2(0.0));
-        float g = dot(pp, inv_radii) - 1.0;
+        //vec2 pp = max(p, vec2(0.0));
+        float g = dot(p, inv_radii) - 1.0;
         return g * inversesqrt(dot(inv_radii, inv_radii));
     }
 
@@ -163,11 +172,27 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
     // to the main axes
     if (any(lessThanEqual(q, vec2(0.0)))) {
         vec2 radii = 1.0 / inv_radii;
-        p = p - radii;
+        //float convex_half_corner = compute_superellipse_half_corner(k);
+        //p = p - radii * convex_half_corner;
+
+        float n = exp2(abs(k));
+        float q = pow(0.05, n - 1.0);
+
+        // x: dy/dx at (0.05 * radii.x, radii.y)
+        // y: dx/dy at (radii.x, 0.05 * radii.y)
+        vec2 grad = -q * radii.yx / max(radii.xy, 0.1);
+
+        // normals
+        vec2 n1 = normalize(vec2(grad.x, -1.0));
+        vec2 n2 = normalize(vec2(-1.0, grad.y));
+        //vec2 n1 = normalize(radii.yx * vec2(convex_half_corner - 1.0, -convex_half_corner));
+        //vec2 n2 = normalize(radii.yx * vec2(-convex_half_corner, convex_half_corner - 1.0));
+        float d1 = dot(p, n1) - n1.y * radii.y;
+        float d2 = dot(p, n2) - n2.x * radii.x;
         if (k >= 0.0) {
-            return max(p.x, p.y);
+            return max(-d1, -d2);
         } else {
-            return min(-p.x, -p.y);
+            return min(d1, d2);
         }
     }
 
@@ -263,15 +288,6 @@ float distance_to_shaped_rect(
                signed_distance_rect(pos, rect_bounds.xy, rect_bounds.zw));
 }
 #endif
-
-float compute_superellipse_half_corner(float shape) {
-    shape = min(2.0, abs(shape));
-
-    float n = exp2(shape);
-    float convex_half_corner = pow(0.5, 1.0 / n);
-
-    return convex_half_corner;
-}
 
 // returns an offset (x,y), and new radii (zw)
 vec4 compute_contoured_superellipse(vec2 radii, float shape, vec2 inset) {
