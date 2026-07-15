@@ -175,12 +175,11 @@ float distance_to_superellipse_approx(vec2 p, vec2 inv_radii, float k) {
         //float convex_half_corner = compute_superellipse_half_corner(k);
         //p = p - radii * convex_half_corner;
 
-        float n = exp2(abs(k));
-        float q = pow(0.05, n - 1.0);
+        float q2 = pow(0.05, n - 1.0);
 
         // x: dy/dx at (0.05 * radii.x, radii.y)
         // y: dx/dy at (radii.x, 0.05 * radii.y)
-        vec2 grad = -q * radii.yx / max(radii.xy, 0.1);
+        vec2 grad = -q2 * radii.yx / max(radii.xy, 0.1);
 
         // normals
         vec2 n1 = normalize(vec2(grad.x, -1.0));
