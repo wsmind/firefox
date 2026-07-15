@@ -264,6 +264,15 @@ float distance_to_shaped_rect(
 }
 #endif
 
+float compute_superellipse_half_corner(float shape) {
+    shape = min(2.0, abs(shape));
+
+    float n = exp2(shape);
+    float convex_half_corner = pow(0.5, 1.0 / n);
+
+    return convex_half_corner;
+}
+
 // returns an offset (x,y), and new radii (zw)
 vec4 compute_contoured_superellipse(vec2 radii, float shape, vec2 inset) {
     float n = exp2(abs(shape));
@@ -274,8 +283,16 @@ vec4 compute_contoured_superellipse(vec2 radii, float shape, vec2 inset) {
     vec2 grad = -q * radii.yx / max(radii.xy, 0.1);
 
     // normals
-    vec2 n1 = normalize(vec2(grad.x, -1.0)) * inset.y;
-    vec2 n2 = normalize(vec2(-1.0, grad.y)) * inset.x;
+    // vec2 n1 = normalize(vec2(grad.x, -1.0)) * inset.y;
+    // vec2 n2 = normalize(vec2(-1.0, grad.y)) * inset.x;
+
+    radii = max(radii, 0.1);
+
+    float convex_half_corner = compute_superellipse_half_corner(shape);
+    // (ah, bh) - (0, b) => (ah, bh - b) => (a, b) * (h, h - 1)
+    // (y, -x)
+    vec2 n1 = normalize(radii * vec2(convex_half_corner - 1.0, -convex_half_corner)) * inset.y;
+    vec2 n2 = normalize(radii * vec2(-convex_half_corner, convex_half_corner - 1.0)) * inset.x;
 
     if (shape >= 0.0) {
         vec2 offset = vec2(n1.x, n2.y); // always negative
