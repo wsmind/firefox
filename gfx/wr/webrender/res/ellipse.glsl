@@ -230,6 +230,14 @@ float distance_to_superellipse(vec2 p, vec2 radii, float k) {
     return distance_to_superellipse_approx(p, inverse_radii(radii), k);
 }
 
+float distance_to_shaped_corner(vec2 pos, vec2 inv_radii, float shape) {
+    if (shape == 1.0) {
+        return distance_to_ellipse_approx(pos, inv_radii, 1.0);
+    } else {
+        return distance_to_superellipse_approx(pos, inv_radii, shape);
+    }
+}
+
 // Same as distance_to_rounded_rect but with per-corner shape values.
 float distance_to_shaped_rect(
     vec2 pos,
@@ -240,11 +248,7 @@ float distance_to_shaped_rect(
     vec4 rect_bounds,
     vec4 corner_shapes
 ) {
-    vec2 corner_p = vec2(1.0e-6);
-    vec2 corner_inv = vec2(1.0);
-    float corner_k = 1.0;
-
-    float in_corner = 0.0;
+    float d = signed_distance_rect(pos, rect_bounds.xy, rect_bounds.zw);
 
     vec2 p_tl = center_radius_tl.xy - pos;
     vec2 p_tr = (center_radius_tr.xy - pos) * vec2(-1.0, 1.0);
@@ -252,43 +256,19 @@ float distance_to_shaped_rect(
     vec2 p_bl = (center_radius_bl.xy - pos) * vec2(1.0, -1.0);
 
     if (p_tl.x >= 0.0 && p_tl.y >= 0.0) {
-        corner_p = p_tl;
-        corner_inv = center_radius_tl.zw;
-        corner_k = corner_shapes.x;
-        in_corner = 1.0;
+        d = max(d, distance_to_shaped_corner(p_tl, center_radius_tl.zw, corner_shapes.x));
     }
     if (p_tr.x >= 0.0 && p_tr.y >= 0.0) {
-        corner_p = p_tr;
-        corner_inv = center_radius_tr.zw;
-        corner_k = corner_shapes.y;
-        in_corner = 1.0;
+        d = max(d, distance_to_shaped_corner(p_tr, center_radius_tr.zw, corner_shapes.y));
     }
     if (p_br.x >= 0.0 && p_br.y >= 0.0) {
-        corner_p = p_br;
-        corner_inv = center_radius_br.zw;
-        corner_k = corner_shapes.z;
-        in_corner = 1.0;
+        d = max(d, distance_to_shaped_corner(p_br, center_radius_br.zw, corner_shapes.z));
     }
     if (p_bl.x >= 0.0 && p_bl.y >= 0.0) {
-        corner_p = p_bl;
-        corner_inv = center_radius_bl.zw;
-        corner_k = corner_shapes.w;
-        in_corner = 1.0;
+        d = max(d, distance_to_shaped_corner(p_bl, center_radius_bl.zw, corner_shapes.w));
     }
 
-    float d_corner;
-    if (in_corner == 0.0) {
-        // Not in any corner. let the rect SDF decide. Use a strongly
-        // negative value so max() defers to the rect.
-        d_corner = -1.0e6;
-    } else if (corner_k == 1.0) {
-        d_corner = distance_to_ellipse_approx(corner_p, corner_inv, 1.0);
-    } else {
-        d_corner = distance_to_superellipse_approx(corner_p, corner_inv, corner_k);
-    }
-
-    return max(d_corner,
-               signed_distance_rect(pos, rect_bounds.xy, rect_bounds.zw));
+    return d;
 }
 #endif
 
