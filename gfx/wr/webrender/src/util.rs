@@ -4,6 +4,7 @@
 
 use api::BorderRadius;
 use api::units::*;
+use euclid::SideOffsets2D;
 use euclid::{Point2D, Rect, Box2D, Size2D, Vector2D, point2, point3};
 use euclid::{default, Transform2D, Transform3D, Scale, approxeq::ApproxEq};
 use plane_split::{Clipper, Polygon};
@@ -306,6 +307,15 @@ impl ScaleOffset {
         Size2D::new(
             size.width * self.scale.x,
             size.height * self.scale.y,
+        )
+    }
+
+    pub fn map_side_offsets<F, T>(&self, side_offsets: &SideOffsets2D<f32, F>) -> SideOffsets2D<f32, T> {
+        SideOffsets2D::new(
+            side_offsets.top * self.scale.y.abs(),
+            side_offsets.right * self.scale.x.abs(),
+            side_offsets.bottom * self.scale.y.abs(),
+            side_offsets.left * self.scale.x.abs(),
         )
     }
 
@@ -656,17 +666,49 @@ pub fn pack_as_float(value: u32) -> f32 {
 fn extract_inner_rect_impl<U>(
     rect: &Box2D<f32, U>,
     radii: &BorderRadius,
+    inset: &SideOffsets2D<f32, U>,
     k: f32,
 ) -> Option<Box2D<f32, U>> {
     // `k` defines how much border is taken into account
     // We enforce the offsets to be rounded to pixel boundaries
     // by `ceil`-ing and `floor`-ing them
 
-    let xl = (k * radii.top_left.width.max(radii.bottom_left.width)).ceil();
-    let xr = (rect.width() - k * radii.top_right.width.max(radii.bottom_right.width)).floor();
-    let yt = (k * radii.top_left.height.max(radii.top_right.height)).ceil();
+    // In case of a corner shape below "round" (superellipse parameter < 1),
+    // we need to add the inset to the radii for correctness. This will slightly
+    // overestimate the corner area for sub-ellipses (-1 < parameter < 1), but
+    // keeps the computation cheap.
+
+    let mut top_left_width = radii.top_left.width;
+    let mut top_left_height = radii.top_left.height;
+    let mut top_right_width = radii.top_right.width;
+    let mut top_right_height = radii.top_right.height;
+    let mut bottom_left_width = radii.bottom_left.width;
+    let mut bottom_left_height = radii.bottom_left.height;
+    let mut bottom_right_width = radii.bottom_right.width;
+    let mut bottom_right_height = radii.bottom_right.height;
+
+    if radii.shape_top_left < 1.0 {
+        top_left_width += inset.top;
+        top_left_height += inset.left;
+    }
+    if radii.shape_top_right < 1.0 {
+        top_right_width += inset.top;
+        top_right_height += inset.right;
+    }
+    if radii.shape_bottom_left < 1.0 {
+        bottom_left_width += inset.bottom;
+        bottom_left_height += inset.left;
+    }
+    if radii.shape_bottom_right < 1.0 {
+        bottom_right_width += inset.bottom;
+        bottom_right_height += inset.right;
+    }
+
+    let xl = (k * top_left_width.max(bottom_left_width)).ceil();
+    let xr = (rect.width() - k * top_right_width.max(bottom_right_width)).floor();
+    let yt = (k * top_left_height.max(top_right_height)).ceil();
     let yb =
-        (rect.height() - k * radii.bottom_left.height.max(radii.bottom_right.height)).floor();
+        (rect.height() - k * bottom_left_height.max(bottom_right_height)).floor();
 
     if xl <= xr && yt <= yb {
         Some(Box2D::from_origin_and_size(
@@ -680,16 +722,14 @@ fn extract_inner_rect_impl<U>(
 
 /// Return an aligned rectangle that is inside the clip region and doesn't intersect
 /// any of the bounding rectangles of the rounded corners.
-/// 
-/// TODO(wsmind): This probably needs to be updated for corner-shape, as corners
-/// can go further inside the rect than with classic border radii.
 pub fn extract_inner_rect_safe<U>(
     rect: &Box2D<f32, U>,
     radii: &BorderRadius,
+    inset: &SideOffsets2D<f32, U>,
 ) -> Option<Box2D<f32, U>> {
     // value of `k==1.0` is used for extraction of the corner rectangles
     // see `SEGMENT_CORNER_*` in `clip_shared.glsl`
-    extract_inner_rect_impl(rect, radii, 1.0)
+    extract_inner_rect_impl(rect, radii, inset, 1.0)
 }
 
 /// Return an aligned rectangle that is inside the clip region and doesn't intersect
@@ -698,9 +738,10 @@ pub fn extract_inner_rect_safe<U>(
 pub fn extract_inner_rect_k<U>(
     rect: &Box2D<f32, U>,
     radii: &BorderRadius,
+    inset: &SideOffsets2D<f32, U>,
     k: f32,
 ) -> Option<Box2D<f32, U>> {
-    extract_inner_rect_impl(rect, radii, k)
+    extract_inner_rect_impl(rect, radii, inset, k)
 }
 
 #[cfg(test)]
