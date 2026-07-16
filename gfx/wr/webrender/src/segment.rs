@@ -263,8 +263,8 @@ impl SegmentBuilder {
         self.inner_rect = inner_rect;
         self.bounding_rect = Some(local_rect);
 
-        self.push_clip_rect(local_rect, None, ClipMode::Clip);
-        self.push_clip_rect(local_clip_rect, None, ClipMode::Clip);
+        self.push_clip_rect(local_rect, None, None, ClipMode::Clip);
+        self.push_clip_rect(local_clip_rect, None, None, ClipMode::Clip);
 
         // This must be set after the push_clip_rect calls above, since we
         // want to skip segment building if those are the only clips.
@@ -366,6 +366,7 @@ impl SegmentBuilder {
         &mut self,
         rect: LayoutRect,
         radius: Option<BorderRadius>,
+        inset: Option<LayoutSideOffsets>,
         mode: ClipMode,
     ) {
         self.has_interesting_clips = true;
@@ -383,7 +384,7 @@ impl SegmentBuilder {
             Some(radius) => {
                 // For a rounded rect, try to create a nine-patch where there
                 // is a clip item for each corner, inner and edge region.
-                match extract_inner_rect_safe(&rect, &radius) {
+                match extract_inner_rect_safe(&rect, &radius, &inset.unwrap_or_default()) {
                     Some(inner) => {
                         let p0 = rect.min;
                         let p1 = inner.min;
@@ -709,7 +710,8 @@ fn emit_segment_if_needed(
 #[cfg(test)]
 mod test {
     use api::{BorderRadius, ClipMode};
-    use api::units::{LayoutPoint, LayoutRect};
+    use api::units::{LayoutPoint, LayoutRect, LayoutSideOffsets, LayoutSize};
+
     use super::{Segment, SegmentBuilder, EdgeMask};
     use std::cmp;
 
@@ -768,7 +770,7 @@ mod test {
         local_rect: LayoutRect,
         inner_rect: Option<LayoutRect>,
         local_clip_rect: LayoutRect,
-        clips: &[(LayoutRect, Option<BorderRadius>, ClipMode)],
+        clips: &[(LayoutRect, Option<BorderRadius>, Option<LayoutSideOffsets>, ClipMode)],
         expected_segments: &mut [Segment]
     ) {
         let mut sb = SegmentBuilder::new();
@@ -777,11 +779,11 @@ mod test {
             inner_rect,
             local_clip_rect,
         );
-        sb.push_clip_rect(local_rect, None, ClipMode::Clip);
-        sb.push_clip_rect(local_clip_rect, None, ClipMode::Clip);
+        sb.push_clip_rect(local_rect, None, None, ClipMode::Clip);
+        sb.push_clip_rect(local_clip_rect, None, None, ClipMode::Clip);
         let mut segments = Vec::new();
-        for &(rect, radius, mode) in clips {
-            sb.push_clip_rect(rect, radius, mode);
+        for &(rect, radius, inset, mode) in clips {
+            sb.push_clip_rect(rect, radius, inset, mode);
         }
         sb.build(|segment| {
             segments.push(Segment {
@@ -926,8 +928,8 @@ mod test {
             None,
             rect(-1000.0, -1000.0, 1000.0, 1000.0),
             &[
-                (rect(20.0, 20.0, 40.0, 40.0), None, ClipMode::Clip),
-                (rect(40.0, 20.0, 60.0, 40.0), None, ClipMode::Clip),
+                (rect(20.0, 20.0, 40.0, 40.0), None, None, ClipMode::Clip),
+                (rect(40.0, 20.0, 60.0, 40.0), None, None, ClipMode::Clip),
             ],
             &mut [
             ],
@@ -941,7 +943,7 @@ mod test {
             None,
             rect(-1000.0, -1000.0, 1000.0, 1000.0),
             &[
-                (rect(20.0, 20.0, 60.0, 60.0), Some(BorderRadius::uniform(10.0)), ClipMode::Clip),
+                (rect(20.0, 20.0, 60.0, 60.0), Some(BorderRadius::uniform(10.0)), None, ClipMode::Clip),
             ],
             &mut [
                 // corners
@@ -963,13 +965,52 @@ mod test {
     }
 
     #[test]
+    fn segment_rounded_clip_inset() {
+        let radius = BorderRadius {
+            top_left: LayoutSize::new(10.0, 10.0),
+            top_right: LayoutSize::new(10.0, 10.0),
+            bottom_left: LayoutSize::new(10.0, 10.0),
+            bottom_right: LayoutSize::new(10.0, 10.0),
+            shape_top_left: 2.0,
+            shape_top_right: 1.0,
+            shape_bottom_left: 0.0,
+            shape_bottom_right: -1.0,
+        };
+        let inset = LayoutSideOffsets::new_all_same(5.0);
+        seg_test(
+            rect(0.0, 0.0, 100.0, 100.0),
+            None,
+            rect(-1000.0, -1000.0, 1000.0, 1000.0),
+            &[
+                (rect(20.0, 20.0, 60.0, 60.0), Some(radius), Some(inset), ClipMode::Clip),
+            ],
+            &mut [
+                // corners
+                seg(20.0, 20.0, 35.0, 30.0, true, Some(EdgeMask::LEFT | EdgeMask::TOP)),
+                seg(20.0, 45.0, 35.0, 60.0, true, Some(EdgeMask::LEFT | EdgeMask::BOTTOM)),
+                seg(45.0, 20.0, 60.0, 30.0, true, Some(EdgeMask::RIGHT | EdgeMask::TOP)),
+                seg(45.0, 45.0, 60.0, 60.0, true, Some(EdgeMask::RIGHT | EdgeMask::BOTTOM)),
+
+                // inner
+                seg(35.0, 30.0, 45.0, 45.0, false, None),
+
+                // edges
+                seg(35.0, 20.0, 45.0, 30.0, false, Some(EdgeMask::TOP)),
+                seg(35.0, 45.0, 45.0, 60.0, false, Some(EdgeMask::BOTTOM)),
+                seg(20.0, 30.0, 35.0, 45.0, false, Some(EdgeMask::LEFT)),
+                seg(45.0, 30.0, 60.0, 45.0, false, Some(EdgeMask::RIGHT)),
+            ],
+        );
+    }
+
+    #[test]
     fn segment_clip_out() {
         seg_test(
             rect(0.0, 0.0, 100.0, 100.0),
             None,
             rect(-1000.0, -1000.0, 2000.0, 2000.0),
             &[
-                (rect(20.0, 20.0, 60.0, 60.0), None, ClipMode::ClipOut),
+                (rect(20.0, 20.0, 60.0, 60.0), None, None, ClipMode::ClipOut),
             ],
             &mut [
                 seg(0.0, 0.0, 20.0, 20.0, false, Some(EdgeMask::TOP | EdgeMask::LEFT)),
@@ -993,7 +1034,7 @@ mod test {
             None,
             rect(-1000.0, -1000.0, 2000.0, 2000.0),
             &[
-                (rect(20.0, 20.0, 60.0, 60.0), Some(BorderRadius::uniform(10.0)), ClipMode::ClipOut),
+                (rect(20.0, 20.0, 60.0, 60.0), Some(BorderRadius::uniform(10.0)), None, ClipMode::ClipOut),
             ],
             &mut [
                 // top row
@@ -1036,8 +1077,8 @@ mod test {
             None,
             rect(-1000.0, -1000.0, 2000.0, 2000.0),
             &[
-                (rect(20.0, 20.0, 60.0, 60.0), None, ClipMode::Clip),
-                (rect(50.0, 50.0, 80.0, 80.0), None, ClipMode::ClipOut),
+                (rect(20.0, 20.0, 60.0, 60.0), None, None, ClipMode::Clip),
+                (rect(50.0, 50.0, 80.0, 80.0), None, None, ClipMode::ClipOut),
             ],
             &mut [
                 seg(20.0, 20.0, 50.0, 50.0, false, Some(EdgeMask::LEFT | EdgeMask::TOP)),
@@ -1054,8 +1095,8 @@ mod test {
             None,
             rect(0.0, 0.0, 100.0, 100.0),
             &[
-                (rect(0.0, 0.0, 10.0, 10.0), None, ClipMode::ClipOut),
-                (rect(0.0, 0.0, 100.0, 100.0), Some(BorderRadius::uniform(10.0)), ClipMode::Clip),
+                (rect(0.0, 0.0, 10.0, 10.0), None, None, ClipMode::ClipOut),
+                (rect(0.0, 0.0, 100.0, 100.0), Some(BorderRadius::uniform(10.0)), None, ClipMode::Clip),
             ],
             &mut [
                 // corners
@@ -1082,8 +1123,8 @@ mod test {
             None,
             rect(0.0, 0.0, 100.0, 100.0),
             &[
-                (rect(10.0, 10.0, 90.0, 90.0), None, ClipMode::Clip),
-                (rect(0.0, 0.0, 100.0, 100.0), Some(BorderRadius::uniform(10.0)), ClipMode::Clip),
+                (rect(10.0, 10.0, 90.0, 90.0), None, None, ClipMode::Clip),
+                (rect(0.0, 0.0, 100.0, 100.0), Some(BorderRadius::uniform(10.0)), None, ClipMode::Clip),
             ],
             &mut [
                 seg(10.0, 10.0, 90.0, 90.0, false,
@@ -1104,8 +1145,8 @@ mod test {
             None,
             rect(0.0, 0.0, 100.0, 100.0),
             &[
-                (rect(10.0, 10.0, 90.0, 90.0), None, ClipMode::Clip),
-                (rect(10.0, 10.0, 90.0, 90.0), None, ClipMode::ClipOut),
+                (rect(10.0, 10.0, 90.0, 90.0), None, None, ClipMode::Clip),
+                (rect(10.0, 10.0, 90.0, 90.0), None, None, ClipMode::ClipOut),
             ],
             &mut [
             ],
@@ -1119,7 +1160,7 @@ mod test {
             None,
             rect(0.0, 0.0, 100.0, 100.0),
             &[
-                (rect(0.0, 0.0, 100.0, 90.0), None, ClipMode::ClipOut),
+                (rect(0.0, 0.0, 100.0, 90.0), None, None, ClipMode::ClipOut),
             ],
             &mut [
                 seg(0.0, 90.0, 100.0, 100.0, false, Some(
@@ -1224,7 +1265,7 @@ mod test {
             Some(rect(20.0, 40.0, 60.0, 80.0)),
             rect(0.0, 0.0, 100.0, 100.0),
             &[
-                (rect(0.0, 0.0, 100.0, 90.0), None, ClipMode::ClipOut),
+                (rect(0.0, 0.0, 100.0, 90.0), None, None, ClipMode::ClipOut),
             ],
             &mut [
                 seg_region(
@@ -1262,7 +1303,7 @@ mod test {
             Some(rect(20.0, 20.0, 80.0, 80.0)),
             rect(0.0, 0.0, 100.0, 100.0),
             &[
-                (rect(20.0, 20.0, 100.0, 100.0), None, ClipMode::ClipOut),
+                (rect(20.0, 20.0, 100.0, 100.0), None, None, ClipMode::ClipOut),
             ],
             &mut [
                 seg_region(
@@ -1315,7 +1356,7 @@ mod test {
             Some(rect(20.0, 20.0, 80.0, 80.0)),
             rect(0.0, 0.0, 100.0, 100.0),
             &[
-                (rect(10.0, 10.0, 30.0, 30.0), None, ClipMode::Clip),
+                (rect(10.0, 10.0, 30.0, 30.0), None, None, ClipMode::Clip),
             ],
             &mut [
                 seg_region(

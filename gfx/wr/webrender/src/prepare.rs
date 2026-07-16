@@ -2324,20 +2324,20 @@ fn write_brush_segment_description(
             continue;
         }
 
-        let (local_clip_rect, radius, mode) = match clip_node.item.kind {
-            ClipItemKind::RoundedRectangle { radius, inset: _, mode } => {
+        let (local_clip_rect, radius, inset, mode) = match clip_node.item.kind {
+            ClipItemKind::RoundedRectangle { radius, inset, mode } => {
                 let radius = clamped_radius(&radius, clip_instance.clip_rect.size());
-                (clip_instance.clip_rect, Some(radius), mode)
+                (clip_instance.clip_rect, Some(radius), Some(inset), mode)
             }
             ClipItemKind::Rectangle { mode } => {
-                (clip_instance.clip_rect, None, mode)
+                (clip_instance.clip_rect, None, None, mode)
             }
             ClipItemKind::Image { .. } => {
                 panic!("bug: masks not supported on old segment path");
             }
         };
 
-        segment_builder.push_clip_rect(local_clip_rect, radius, mode);
+        segment_builder.push_clip_rect(local_clip_rect, radius, inset, mode);
     }
 
     true
