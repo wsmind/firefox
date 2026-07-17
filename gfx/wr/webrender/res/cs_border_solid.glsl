@@ -33,6 +33,7 @@ flat varying highp vec4 vClipOffsets;
 
 flat varying highp vec3 vShape;
 flat varying highp vec2 vWidths;
+flat varying highp vec2 vOriginalRadii;
 
 // Position, scale, and radii of horizontally and vertically adjacent corner clips.
 flat varying highp vec4 vHorizontalClipCenter_Sign;
@@ -110,6 +111,7 @@ void main(void) {
     vColor1 = data.color1;
     vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + clipOffset), clip_sign);
     vClipRadii = vec4(data.radii, max(data.radii - data.widths, 0.0));
+    vOriginalRadii = data.radii;
     vShape = vec3(data.shape, clipOffset);
     vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
@@ -181,8 +183,8 @@ void main(void) {
             d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, vShape.x);
 
             // exclude the straight border part from the subtracted region
-            // vec2 included_region = vClipRadii.xy - vWidths.xy - clip_relative_pos.xy;
-            // d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
+            vec2 included_region = vOriginalRadii.xy - vWidths.xy - clip_relative_pos.xy;
+            d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
 
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(vClipRadii.x, 0.0)));
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(0.0, vClipRadii.y)));
