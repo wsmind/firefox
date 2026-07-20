@@ -6,7 +6,7 @@
 ///
 /// GPU buffer layout at pattern_input.x (5 blocks):
 ///   [0] alloc_size.x, alloc_size.y, dest_rect_size.x, dest_rect_size.y
-///   [1] dest_rect_offset.x, dest_rect_offset.y, clip_mode (0=outset, 1=inset), 0
+///   [1] dest_rect_offset.x, dest_rect_offset.y, clip_mode (0=outset, 1=inset), inset
 ///   [2] element_offset_rel_prim.x, element_offset_rel_prim.y, element_size.x, element_size.y
 ///   [3] element_radius.tl.w, element_radius.tl.h, element_radius.tr.w, element_radius.tr.h
 ///   [4] element_radius.br.w, element_radius.br.h, element_radius.bl.w, element_radius.bl.h
@@ -53,6 +53,17 @@ flat varying highp vec4 vElemShape;
 
 #ifdef WR_VERTEX_SHADER
 
+vec4 apply_inset(vec2 center, vec2 radii, float inset, vec2 clip_sign, float k) {
+    // if (k < 1.0) {
+    //     vec2 reference_radii = (radii == vec2(0.0)) ? vec2(0.0) : radii + inset;
+    //     vec4 offset_radii = compute_contoured_superellipse(reference_radii, k, vec2(inset));
+    //     center += offset_radii.xy * clip_sign;
+    //     radii = offset_radii.zw;
+    // }
+
+    return vec4(center, radii);
+}
+
 void pattern_vertex(PrimitiveInfo info) {
     vec4 data0 = fetch_from_gpu_buffer_1f(info.pattern_input.x);
     vec4 data1 = fetch_from_gpu_buffer_1f(info.pattern_input.x + 1);
@@ -96,10 +107,12 @@ void pattern_vertex(PrimitiveInfo info) {
     vec2 r_br = data4.xy;
     vec2 r_bl = data4.zw;
 
-    vElemCenter_Radius_TL = vec4(elem_p0 + r_tl, r_tl);
-    vElemCenter_Radius_TR = vec4(elem_p1.x - r_tr.x, elem_p0.y + r_tr.y, r_tr);
-    vElemCenter_Radius_BR = vec4(elem_p1 - r_br, r_br);
-    vElemCenter_Radius_BL = vec4(elem_p0.x + r_bl.x, elem_p1.y - r_bl.y, r_bl);
+    float inset = data1.w;
+
+    vElemCenter_Radius_TL = apply_inset(elem_p0 + r_tl, r_tl, inset, vec2(-1.0, -1.0), data5.x);
+    vElemCenter_Radius_TR = apply_inset(vec2(elem_p1.x - r_tr.x, elem_p0.y + r_tr.y), r_tr, inset, vec2(1.0, -1.0), data5.y);
+    vElemCenter_Radius_BR = apply_inset(elem_p1 - r_br, r_br, inset, vec2(1.0, 1.0), data5.z);
+    vElemCenter_Radius_BL = apply_inset(vec2(elem_p0.x + r_bl.x, elem_p1.y - r_bl.y), r_bl, inset, vec2(-1.0, 1.0), data5.w);
 
     vElemShape = data5;
 }

@@ -538,6 +538,11 @@ fn prepare_prim_for_render(
             );
             let device_pixel_scale_for_task = DevicePixelScale::new(content_scale.0);
 
+            let inset = match shadow_data.clip_mode {
+                BoxShadowClipMode::Outset => LayoutSideOffsets::new_all_same(-shadow_data.spread_amount),
+                BoxShadowClipMode::Inset => LayoutSideOffsets::new_all_same(shadow_data.spread_amount),
+            };
+
             let task_id = frame_state.resource_cache.request_render_task(
                 Some(RenderTaskCacheKey {
                     origin: DeviceIntPoint::zero(),
@@ -555,7 +560,7 @@ fn prepare_prim_for_render(
                         RenderTaskKind::new_rounded_rect_mask(
                             minimal_shadow_rect,
                             shadow_radius,
-                            LayoutSideOffsets::new_all_same(-shadow_data.spread_amount),
+                            inset,
                             ClipMode::Clip,
                             device_pixel_scale_for_task,
                         ),
@@ -600,6 +605,7 @@ fn prepare_prim_for_render(
                 element_offset_rel_prim,
                 element_size: element_rect.size(),
                 element_radius,
+                inset: 0.0,
             };
 
             quad::prepare_quad(

@@ -28,6 +28,7 @@ pub struct BoxShadowPatternData {
     pub element_offset_rel_prim: LayoutVector2D,
     pub element_size: LayoutSize,
     pub element_radius: BorderRadius,
+    pub inset: f32,
 }
 
 impl PatternBuilder for BoxShadowPatternData {
@@ -49,7 +50,7 @@ impl PatternBuilder for BoxShadowPatternData {
             self.dest_rect_offset.x,
             self.dest_rect_offset.y,
             if self.clip_mode == BoxShadowClipMode::Inset { 1.0 } else { 0.0 },
-            0.0,
+            self.inset,
         ]);
         writer.push_one([
             self.element_offset_rel_prim.x,
