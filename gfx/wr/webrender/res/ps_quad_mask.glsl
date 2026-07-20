@@ -22,6 +22,7 @@ flat varying highp vec4 vClipPlane_B;
 flat varying highp vec4 vClipPlane_C;
 
 flat varying highp vec4 vClipShape;
+flat varying highp vec4 vClipClampedInset;
 
 #endif
 flat varying highp vec2 vClipMode;
@@ -172,6 +173,7 @@ void pattern_vertex(PrimitiveInfo prim_info) {
     vClipPlane_C = vec4(br.z, bl.x, bl.y, bl.z);
 
     vClipShape = clip.shape;
+    vClipClampedInset = min(clip.inset, 0.0);
 #endif
 
 }
@@ -226,7 +228,8 @@ vec4 pattern_fragment(vec4 _base_color) {
             vClipCenter_Radius_BR,
             vClipCenter_Radius_BL,
             vTransformBounds,
-            vClipShape
+            vClipShape,
+            vClipClampedInset
         );
     }
 #endif
