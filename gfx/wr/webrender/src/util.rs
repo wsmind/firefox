@@ -473,7 +473,15 @@ pub fn extract_inner_rect_k<U>(
     inset: &SideOffsets2D<f32, U>,
     k: f32,
 ) -> Option<Box2D<f32, U>> {
-    extract_inner_rect_impl(rect, radii, inset, k)
+    // When using corner shape, corners can go inside the shape and create
+    // clipping issues, we need the 'safe' (k == 1.0) version in that case.
+    // This could be refined by computing the superellipse half corners but
+    // would make the calculation a bit more expensive.
+    if radii.shapes_all_round() {
+        extract_inner_rect_impl(rect, radii, inset, k)
+    } else {
+        extract_inner_rect_impl(rect, radii, inset, 1.0)
+    }
 }
 
 #[cfg(test)]
