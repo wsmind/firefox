@@ -18,7 +18,7 @@ vec2 inverse_radii(vec2 radii) {
 }
 
 float compute_superellipse_half_corner(float shape) {
-    shape = min(2.0, abs(shape));
+    shape = min(1.0, abs(shape));
 
     float n = exp2(shape);
     float convex_half_corner = pow(0.5, 1.0 / n);
