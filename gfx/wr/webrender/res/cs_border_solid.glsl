@@ -99,9 +99,6 @@ void main(void) {
     vMixColors.x = mix_colors;
     vPos = size * aPosition.xy;
 
-    //data.shape = abs(data.shape);
-    //data.shape_offset = vec2(0.0);
-
     vec2 clipOffset = vec2(0.0);
     if (data.shape < 1.0) {
         clipOffset = max(data.radii, data.widths) + data.shape_offset;
