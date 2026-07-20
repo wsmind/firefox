@@ -32,9 +32,11 @@ flat varying highp vec4 vClipCenter_Sign;
 // An outer and inner elliptical radii for border
 // corner clipping.
 flat varying highp vec4 vClipRadii;
+flat varying highp vec4 vClipOffsets;
 
-// vec2 to avoid bug
 flat varying highp vec3 vShape;
+flat varying highp vec2 vWidths;
+flat varying highp vec2 vOriginalRadii;
 
 // Reference point for determine edge clip lines.
 flat varying highp vec4 vEdgeReference;
@@ -190,19 +192,35 @@ void main(void) {
     vPartialWidths = vec4(data.widths / 3.0, data.widths / 2.0);
     vPos = size * aPosition.xy;
 
+    vec2 clipOffset = vec2(0.0);
+    if (data.shape < 1.0) {
+        clipOffset = max(data.radii, data.widths) + data.shape_offset;
+    }
+
     vec4[2] color0 = get_colors_for_side(data.color0, style0);
     vColor00 = color0[0];
     vColor01 = color0[1];
     vec4[2] color1 = get_colors_for_side(data.color1, style1);
     vColor10 = color1[0];
     vColor11 = color1[1];
-    vClipCenter_Sign = vec4(outer + clip_sign * data.radii, clip_sign);
+    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + clipOffset), clip_sign);
     vClipRadii = vec4(data.radii, max(data.radii - data.widths, 0.0));
-    vShape = vec3(data.shape, data.widths);
+    vOriginalRadii = data.radii;
+    vShape = vec3(data.shape, clipOffset);
+    vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
     vEdgeReference = vec4(edge_reference, edge_reference + data.widths);
     vClipParams1 = aClipParams1;
     vClipParams2 = aClipParams2;
+
+    if (data.shape != 1.0)
+    {
+        vec2 reference_radii = (data.radii == vec2(0.0)) ? vec2(0.0) : data.radii + data.inset;
+        vec4 contour1 = compute_contoured_superellipse(reference_radii, data.shape, data.inset);
+        vec4 contour2 = compute_contoured_superellipse(reference_radii, data.shape, data.inset + data.widths);
+        vClipOffsets = vec4(contour1.xy, contour2.xy);
+        vClipRadii = vec4(contour1.zw, contour2.zw);
+    }
 
     // For the case of dot and dash clips, optimize the number of pixels that
     // are hit to just include the dot itself.
@@ -250,53 +268,61 @@ vec4 evaluate_color_for_style_in_corner(
             // also 0.67 of the radii. Use these to form a
             // SDF subtraction which will clip out the inside
             // third of the rounded edge.
-            // float d_radii_a = distance_to_ellipse(
-            //     clip_relative_pos,
-            //     clip_radii.xy - vPartialWidths.xy
-            // );
-            // float d_radii_b = distance_to_ellipse(
-            //     clip_relative_pos,
-            //     clip_radii.xy - 2.0 * vPartialWidths.xy
-            // );
-            //float d_radii_a = length(clip_relative_pos) - vClipRadii.x;
-            float d_radii_a = distance_to_superellipse(
-                clip_relative_pos,
-                clip_radii.xy - vPartialWidths.xy,
-                vShape.x
-            );
+            float d_radii_a;
             float d_radii_b;
-            vec2 shrunkRadii = clip_radii.xy - 2.0 * vPartialWidths.xy;
-            if (all(lessThanEqual(shrunkRadii, vec2(0.0)))) {
-                d_radii_b = 1.0;
-            } else if (vShape.x >= 0.0) {
-                d_radii_b = distance_to_superellipse(
+            if (vShape.x == 1.0) {
+                d_radii_a = distance_to_ellipse(
                     clip_relative_pos,
-                    shrunkRadii,
-                    vShape.x
+                    clip_radii.xy - vPartialWidths.xy
+                );
+                d_radii_b = distance_to_ellipse(
+                    clip_relative_pos,
+                    clip_radii.xy - 2.0 * vPartialWidths.xy
                 );
             } else {
-                d_radii_b = distance_to_superellipse(
-                    clip_relative_pos + 2.0 * vPartialWidths.xy,
-                    clip_radii.xy,
+                d_radii_a = distance_to_superellipse(
+                    clip_relative_pos - mix(vClipOffsets.xy, vClipOffsets.zw, 1.0 / 3.0),
+                    mix(vClipRadii.xy, vClipRadii.zw, 1.0 / 3.0),
                     vShape.x
                 );
-            }
-            float d = min(-d_radii_a, d_radii_b);
+                d_radii_b = distance_to_superellipse(
+                    clip_relative_pos - mix(vClipOffsets.xy, vClipOffsets.zw, 2.0 / 3.0),
+                    mix(vClipRadii.xy, vClipRadii.zw, 2.0 / 3.0),
+                    vShape.x
+                );
 
-            // float e1 = -min(-d_radii_a, d_radii_a + vPartialWidths.x);
-            // float e2 = -min(-vPartialWidths.x * 2.0 - d_radii_a, d_radii_a + vPartialWidths.x * 3.0);
-            // float d = min(e1, e2);
+                // Clamp to the middle of the adjacent borders
+                vec2 included_region_a = vOriginalRadii.xy - vPartialWidths.xy - clip_relative_pos.xy;
+                d_radii_a = max(d_radii_a, -min(included_region_a.x, included_region_a.y));
+
+                vec2 included_region_b = vOriginalRadii.xy - 2.0 * vPartialWidths.xy - clip_relative_pos.xy;
+                d_radii_b = max(d_radii_b, -min(included_region_b.x, included_region_b.y));
+            }
+
+            float d = min(-d_radii_a, d_radii_b);
 
             color0 *= distance_aa(aa_range, d);
             break;
         }
         case BORDER_STYLE_GROOVE:
         case BORDER_STYLE_RIDGE: {
-            float d = distance_to_superellipse(
-                clip_relative_pos + vPartialWidths.zw,
-                clip_radii.xy,
-                vShape.x
-            );
+            float d;
+            if (vShape.x == 1.0) {
+                d = distance_to_ellipse(
+                    clip_relative_pos,
+                    clip_radii.xy - vPartialWidths.zw
+                );
+            } else {
+                d = distance_to_superellipse(
+                    clip_relative_pos - mix(vClipOffsets.xy, vClipOffsets.zw, 0.5),
+                    mix(vClipRadii.xy, vClipRadii.zw, 0.5),
+                    vShape.x
+                );
+
+                // Clamp to the middle of the adjacent borders
+                vec2 included_region = vOriginalRadii.xy - vPartialWidths.zw - clip_relative_pos.xy;
+                d = max(d, -min(included_region.x, included_region.y));
+            }
             float alpha = distance_aa(aa_range, d);
             float swizzled_factor;
             switch (segment) {
@@ -415,23 +441,23 @@ void main(void) {
     }
 
     if (in_clip_region) {
-        clip_relative_pos = abs(clip_relative_pos);
-        // float d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
-        // float d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
-        float d_radii_a = distance_to_superellipse(clip_relative_pos, vClipRadii.xy, vShape.x);
+        float d_radii_a;
         float d_radii_b;
-        if (all(lessThanEqual(vClipRadii.zw, vec2(0.0)))) {
-            d_radii_b = 1.0;
-        } else if (vShape.x >= 0.0) {
-            d_radii_b = distance_to_superellipse(clip_relative_pos, vClipRadii.zw, vShape.x);
+
+        if (vShape.x == 1.0) {
+            d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
+            d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
         } else {
-            d_radii_b = distance_to_superellipse(clip_relative_pos + vShape.yz, vClipRadii.xy, vShape.x);
+            clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
+            d_radii_a = distance_to_superellipse(clip_relative_pos - vClipOffsets.xy, vClipRadii.xy, vShape.x);
+            d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, vShape.x);
+
+            // exclude the straight border part from the subtracted region
+            vec2 included_region = vOriginalRadii.xy - vWidths.xy - clip_relative_pos.xy;
+            d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
         }
-        float d_radii = max(d_radii_a, -d_radii_b);
-        d = max(d, d_radii);
-        // float d1 = -min(-d_radii_a, d_radii_a + vPartialWidths.x);
-        // float d2 = -min(vPartialWidths.x * 2.0 - d_radii_a, d_radii_a + vPartialWidths.x * 3.0);
-        //d = d_radii_a;
+
+        d = max(d_radii_a, -d_radii_b);
 
         color0 = evaluate_color_for_style_in_corner(
             clip_relative_pos,
