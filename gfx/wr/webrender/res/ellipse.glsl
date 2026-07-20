@@ -246,7 +246,8 @@ float distance_to_shaped_rect(
     vec4 center_radius_br,
     vec4 center_radius_bl,
     vec4 rect_bounds,
-    vec4 corner_shapes
+    vec4 corner_shapes,
+    vec4 clamped_inset // always negative (i.e outset-only)
 ) {
     float d = signed_distance_rect(pos, rect_bounds.xy, rect_bounds.zw);
 
@@ -255,16 +256,21 @@ float distance_to_shaped_rect(
     vec2 p_br = pos - center_radius_br.xy;
     vec2 p_bl = (center_radius_bl.xy - pos) * vec2(1.0, -1.0);
 
-    if (p_tl.x >= 0.0 && p_tl.y >= 0.0) {
+    vec2 i_tl = (corner_shapes.x == 1.0) ? vec2(0.0) : clamped_inset.xw;
+    vec2 i_tr = (corner_shapes.y == 1.0) ? vec2(0.0) : clamped_inset.xy;
+    vec2 i_br = (corner_shapes.z == 1.0) ? vec2(0.0) : clamped_inset.zy;
+    vec2 i_bl = (corner_shapes.w == 1.0) ? vec2(0.0) : clamped_inset.zw;
+
+    if (p_tl.x >= i_tl.x && p_tl.y >= i_tl.y) {
         d = max(d, distance_to_shaped_corner(p_tl, center_radius_tl.zw, corner_shapes.x));
     }
-    if (p_tr.x >= 0.0 && p_tr.y >= 0.0) {
+    if (p_tr.x >= i_tr.x && p_tr.y >= i_tr.y) {
         d = max(d, distance_to_shaped_corner(p_tr, center_radius_tr.zw, corner_shapes.y));
     }
-    if (p_br.x >= 0.0 && p_br.y >= 0.0) {
+    if (p_br.x >= i_br.x && p_br.y >= i_br.y) {
         d = max(d, distance_to_shaped_corner(p_br, center_radius_br.zw, corner_shapes.z));
     }
-    if (p_bl.x >= 0.0 && p_bl.y >= 0.0) {
+    if (p_bl.x >= i_bl.x && p_bl.y >= i_bl.y) {
         d = max(d, distance_to_shaped_corner(p_bl, center_radius_bl.zw, corner_shapes.w));
     }
 
