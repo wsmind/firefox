@@ -59,3 +59,67 @@ root:
           clip-mode: outset
           spread-radius: 10
           border-radius: [ 4, 4, 4, 4, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 20, 220, 80, 80 ]
+          color: blue
+          clip-mode: inset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 0, 20, 20, 20, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 120, 220, 80, 80 ]
+          color: blue
+          clip-mode: inset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 25, 25, 25, 25, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 220, 220, 80, 80 ]
+          color: blue
+          clip-mode: inset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 0, 10, 10, 10, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 320, 220, 80, 80 ]
+          color: blue
+          clip-mode: inset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 4, 4, 4, 4, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 30, 330, 60, 60 ]
+          color: red
+          clip-mode: outset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 0, 20, 20, 20, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 130, 330, 60, 60 ]
+          color: red
+          clip-mode: outset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 25, 25, 25, 25, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 230, 330, 60, 60 ]
+          color: red
+          clip-mode: outset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 0, 10, 10, 10, 1.0, -0.7, -Inf, 0.0 ]
+
+        - type: box-shadow
+          bounds: [ 330, 330, 60, 60 ]
+          color: red
+          clip-mode: outset
+          spread-radius: 10
+          blur-radius: 1
+          border-radius: [ 4, 4, 4, 4, 1.0, -0.7, -Inf, 0.0 ]

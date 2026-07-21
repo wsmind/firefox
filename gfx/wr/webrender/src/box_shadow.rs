@@ -121,6 +121,7 @@ pub struct BoxShadowCacheKey {
     pub shape_bottom_left: u32,
     pub shape_bottom_right: u32,
     pub device_pixel_scale: Au,
+    pub spread_amount: u32,
 }
 
 impl<'a> SceneBuilder<'a> {
