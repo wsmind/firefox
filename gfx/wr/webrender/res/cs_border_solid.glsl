@@ -8,6 +8,10 @@
 #define MIX_AA 1
 #define MIX_NO_AA 2
 
+// Address of border data in the GPU Buffer.
+// Packed in to a vector to work around bug 1630356.
+flat varying highp ivec2 vGpuDataAddress;
+
 // For edges, the colors are the same. For corners, these
 // are the colors of each edge making up the corner.
 flat varying mediump vec4 vColor0;
@@ -30,10 +34,6 @@ flat varying highp vec4 vClipCenter_Sign;
 // corner clipping.
 flat varying highp vec4 vClipRadii;
 flat varying highp vec4 vClipOffsets;
-
-flat varying highp vec3 vShape;
-flat varying highp vec2 vWidths;
-flat varying highp vec2 vOriginalRadii;
 
 // Position, scale, and radii of horizontally and vertically adjacent corner clips.
 flat varying highp vec4 vHorizontalClipCenter_Sign;
@@ -73,6 +73,7 @@ vec2 get_outer_corner_scale(int segment) {
 
 void main(void) {
     BorderInstanceGpuData data = fetch_gpu_data(aGpuDataAddress);
+    vGpuDataAddress.x = aGpuDataAddress;
 
     int segment = aFlags & 0xff;
     bool do_aa = ((aFlags >> 24) & 0xf0) != 0;
@@ -99,18 +100,10 @@ void main(void) {
     vMixColors.x = mix_colors;
     vPos = size * aPosition.xy;
 
-    vec2 clipOffset = vec2(0.0);
-    if (data.shape < 1.0) {
-        clipOffset = max(data.radii, data.widths) + data.shape_offset;
-    }
-
     vColor0 = data.color0;
     vColor1 = data.color1;
-    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + clipOffset), clip_sign);
+    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + data.shape_offset), clip_sign);
     vClipRadii = vec4(data.radii, max(data.radii - data.widths, 0.0));
-    vOriginalRadii = data.radii;
-    vShape = vec3(data.shape, clipOffset);
-    vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
 
     if (data.shape != 1.0)
@@ -144,6 +137,8 @@ float debug_circle(vec2 pos, vec2 center) {
 }
 
 void main(void) {
+    BorderInstanceGpuData data = fetch_gpu_data(vGpuDataAddress.x);
+
     float aa_range = compute_aa_range(vPos);
     bool do_aa = vMixColors.x != MIX_NO_AA;
 
@@ -171,16 +166,16 @@ void main(void) {
         float d_radii_a;
         float d_radii_b;
 
-        if (vShape.x == 1.0) {
+        if (data.shape == 1.0) {
             d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
             d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
         } else {
-            clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
-            d_radii_a = distance_to_superellipse(clip_relative_pos - vClipOffsets.xy, vClipRadii.xy, vShape.x);
-            d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, vShape.x);
+            clip_relative_pos = abs(clip_relative_pos) - data.shape_offset;
+            d_radii_a = distance_to_superellipse(clip_relative_pos - vClipOffsets.xy, vClipRadii.xy, data.shape);
+            d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, data.shape);
 
             // exclude the straight border part from the subtracted region
-            vec2 included_region = vOriginalRadii.xy - vWidths.xy - clip_relative_pos.xy;
+            vec2 included_region = data.radii - data.widths - clip_relative_pos;
             d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
 
             d2 = min(d2, debug_circle(clip_relative_pos - vClipOffsets.xy, vec2(vClipRadii.x, 0.0)));

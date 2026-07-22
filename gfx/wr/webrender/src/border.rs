@@ -1217,6 +1217,12 @@ pub fn build_border_instances(
     let v_corner_outer = (LayoutPoint::from_au(cache_key.v_adjacent_corner_outer) * scale).round();
     let v_corner_radius = (LayoutSize::from_au(cache_key.v_adjacent_corner_radius) * scale).ceil();
 
+    let shape_offset = if shape < 1.0 {
+        radius.max(widths) + shape_offset
+    } else {
+        DeviceSize::zero()
+    };
+
     add_segment(
         DeviceRect::from_size(cache_size.to_f32()),
         style0,

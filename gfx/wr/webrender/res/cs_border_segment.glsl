@@ -15,10 +15,10 @@ flat varying mediump vec4 vColor11;
 // transition occurs. Used for corners only.
 flat varying highp vec4 vColorLine;
 
-// x: segment, y: clip mode
+// x: segment, y: clip mode, z: gpu buffer data address
 // We cast these to/from floats rather than using an ivec due to a driver bug
 // on Adreno 3xx. See bug 1730458.
-flat varying mediump vec2 vSegmentClipMode;
+flat varying highp vec3 vSegment_ClipMode_DataAddress;
 // x, y: styles, z, w: edge axes
 // We cast these to/from floats rather than using an ivec (and bitshifting)
 // due to a driver bug on Adreno 3xx. See bug 1730458.
@@ -33,10 +33,6 @@ flat varying highp vec4 vClipCenter_Sign;
 // corner clipping.
 flat varying highp vec4 vClipRadii;
 flat varying highp vec4 vClipOffsets;
-
-flat varying highp vec3 vShape;
-flat varying highp vec2 vWidths;
-flat varying highp vec2 vOriginalRadii;
 
 // Reference point for determine edge clip lines.
 flat varying highp vec4 vEdgeReference;
@@ -186,16 +182,11 @@ void main(void) {
             break;
     }
 
-    vSegmentClipMode = vec2(float(segment), float(clip_mode));
+    vSegment_ClipMode_DataAddress = vec3(float(segment), float(clip_mode), float(aGpuDataAddress));
     vStyleEdgeAxis = vec4(float(style0), float(style1), float(edge_axis.x), float(edge_axis.y));
 
     vPartialWidths = vec4(data.widths / 3.0, data.widths / 2.0);
     vPos = size * aPosition.xy;
-
-    vec2 clipOffset = vec2(0.0);
-    if (data.shape < 1.0) {
-        clipOffset = max(data.radii, data.widths) + data.shape_offset;
-    }
 
     vec4[2] color0 = get_colors_for_side(data.color0, style0);
     vColor00 = color0[0];
@@ -203,11 +194,8 @@ void main(void) {
     vec4[2] color1 = get_colors_for_side(data.color1, style1);
     vColor10 = color1[0];
     vColor11 = color1[1];
-    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + clipOffset), clip_sign);
+    vClipCenter_Sign = vec4(outer + clip_sign * (data.radii + data.shape_offset), clip_sign);
     vClipRadii = vec4(data.radii, max(data.radii - data.widths, 0.0));
-    vOriginalRadii = data.radii;
-    vShape = vec3(data.shape, clipOffset);
-    vWidths = data.widths;
     vColorLine = vec4(outer, data.widths.y * -clip_sign.y, data.widths.x * clip_sign.x);
     vEdgeReference = vec4(edge_reference, edge_reference + data.widths);
     vClipParams1 = aClipParams1;
@@ -253,6 +241,7 @@ void main(void) {
 
 #ifdef WR_FRAGMENT_SHADER
 vec4 evaluate_color_for_style_in_corner(
+    BorderInstanceGpuData data,
     vec2 clip_relative_pos,
     int style,
     vec4 color0,
@@ -270,7 +259,7 @@ vec4 evaluate_color_for_style_in_corner(
             // third of the rounded edge.
             float d_radii_a;
             float d_radii_b;
-            if (vShape.x == 1.0) {
+            if (data.shape == 1.0) {
                 d_radii_a = distance_to_ellipse(
                     clip_relative_pos,
                     clip_radii.xy - vPartialWidths.xy
@@ -283,19 +272,19 @@ vec4 evaluate_color_for_style_in_corner(
                 d_radii_a = distance_to_superellipse(
                     clip_relative_pos - mix(vClipOffsets.xy, vClipOffsets.zw, 1.0 / 3.0),
                     mix(vClipRadii.xy, vClipRadii.zw, 1.0 / 3.0),
-                    vShape.x
+                    data.shape
                 );
                 d_radii_b = distance_to_superellipse(
                     clip_relative_pos - mix(vClipOffsets.xy, vClipOffsets.zw, 2.0 / 3.0),
                     mix(vClipRadii.xy, vClipRadii.zw, 2.0 / 3.0),
-                    vShape.x
+                    data.shape
                 );
 
                 // Clamp to the middle of the adjacent borders
-                vec2 included_region_a = vOriginalRadii.xy - vPartialWidths.xy - clip_relative_pos.xy;
+                vec2 included_region_a = data.radii - vPartialWidths.xy - clip_relative_pos;
                 d_radii_a = max(d_radii_a, -min(included_region_a.x, included_region_a.y));
 
-                vec2 included_region_b = vOriginalRadii.xy - 2.0 * vPartialWidths.xy - clip_relative_pos.xy;
+                vec2 included_region_b = data.radii - 2.0 * vPartialWidths.xy - clip_relative_pos;
                 d_radii_b = max(d_radii_b, -min(included_region_b.x, included_region_b.y));
             }
 
@@ -307,7 +296,7 @@ vec4 evaluate_color_for_style_in_corner(
         case BORDER_STYLE_GROOVE:
         case BORDER_STYLE_RIDGE: {
             float d;
-            if (vShape.x == 1.0) {
+            if (data.shape == 1.0) {
                 d = distance_to_ellipse(
                     clip_relative_pos,
                     clip_radii.xy - vPartialWidths.zw
@@ -316,11 +305,11 @@ vec4 evaluate_color_for_style_in_corner(
                 d = distance_to_superellipse(
                     clip_relative_pos - mix(vClipOffsets.xy, vClipOffsets.zw, 0.5),
                     mix(vClipRadii.xy, vClipRadii.zw, 0.5),
-                    vShape.x
+                    data.shape
                 );
 
                 // Clamp to the middle of the adjacent borders
-                vec2 included_region = vOriginalRadii.xy - vPartialWidths.zw - clip_relative_pos.xy;
+                vec2 included_region = data.radii - vPartialWidths.zw - clip_relative_pos;
                 d = max(d, -min(included_region.x, included_region.y));
             }
             float alpha = distance_aa(aa_range, d);
@@ -387,10 +376,13 @@ void main(void) {
     float aa_range = compute_aa_range(vPos);
     vec4 color0, color1;
 
-    int segment = int(vSegmentClipMode.x);
-    int clip_mode = int(vSegmentClipMode.y);
+    int segment = int(vSegment_ClipMode_DataAddress.x);
+    int clip_mode = int(vSegment_ClipMode_DataAddress.y);
+    int data_address = int(vSegment_ClipMode_DataAddress.z);
     ivec2 style = ivec2(int(vStyleEdgeAxis.x), int(vStyleEdgeAxis.y));
     ivec2 edge_axis = ivec2(int(vStyleEdgeAxis.z), int(vStyleEdgeAxis.w));
+
+    BorderInstanceGpuData data = fetch_gpu_data(data_address);
 
     float mix_factor = 0.0;
     if (edge_axis.x != edge_axis.y) {
@@ -444,22 +436,23 @@ void main(void) {
         float d_radii_a;
         float d_radii_b;
 
-        if (vShape.x == 1.0) {
+        if (data.shape == 1.0) {
             d_radii_a = distance_to_ellipse(clip_relative_pos, vClipRadii.xy);
             d_radii_b = distance_to_ellipse(clip_relative_pos, vClipRadii.zw);
         } else {
-            clip_relative_pos = abs(clip_relative_pos) - vShape.yz;
-            d_radii_a = distance_to_superellipse(clip_relative_pos - vClipOffsets.xy, vClipRadii.xy, vShape.x);
-            d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, vShape.x);
+            clip_relative_pos = abs(clip_relative_pos) - data.shape_offset;
+            d_radii_a = distance_to_superellipse(clip_relative_pos - vClipOffsets.xy, vClipRadii.xy, data.shape);
+            d_radii_b = distance_to_superellipse(clip_relative_pos - vClipOffsets.zw, vClipRadii.zw, data.shape);
 
             // exclude the straight border part from the subtracted region
-            vec2 included_region = vOriginalRadii.xy - vWidths.xy - clip_relative_pos.xy;
+            vec2 included_region = data.radii - data.widths - clip_relative_pos;
             d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
         }
 
         d = max(d_radii_a, -d_radii_b);
 
         color0 = evaluate_color_for_style_in_corner(
+            data,
             clip_relative_pos,
             style.x,
             vColor00,
@@ -470,6 +463,7 @@ void main(void) {
             aa_range
         );
         color1 = evaluate_color_for_style_in_corner(
+            data,
             clip_relative_pos,
             style.y,
             vColor10,
