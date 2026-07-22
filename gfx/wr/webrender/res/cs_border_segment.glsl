@@ -449,8 +449,9 @@ void main(void) {
             d_radii_b = max(d_radii_b, -min(included_region.x, included_region.y));
         }
 
-        d = max(d_radii_a, -d_radii_b);
-
+        float d_radii = max(d_radii_a, -d_radii_b);
+        d = max(d, d_radii);
+        
         color0 = evaluate_color_for_style_in_corner(
             data,
             clip_relative_pos,
