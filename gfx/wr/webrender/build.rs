@@ -61,7 +61,9 @@ fn write_unoptimized_shaders(
         let base = glsl.parent().unwrap();
         assert!(base.is_dir());
         ShaderSourceParser::new().parse(
+            &shader_name,
             Cow::Owned(shader_source_from_file(&glsl)),
+            false,
             &|f| Cow::Owned(shader_source_from_file(&base.join(&format!("{}.glsl", f)))),
             &mut |s| hasher.write(s.as_bytes()),
         );
@@ -203,14 +205,28 @@ fn write_optimized_shaders(
                 (glslopt::ShaderType::Fragment, frag_src, "frag"),
             ]
             .map(|(shader_type, shader_src, extension)| {
+                // Remove double quotes around shader filenames in the log.
+                // Also changes parentheses to colon for the error column.
+                let remove_quotes =
+                    regex::Regex::new(r#"^"(.*\.glsl)":([0-9]+)\(([0-9]+)\)"#).unwrap();
+                let process_log = |log| remove_quotes.replace_all(log, r#"$1:$2:$3"#);
+
                 let output = glslopt_ctx.optimize(shader_type, shader_src.clone());
                 if !output.get_status() {
                     let source = enumerate_shader_source_lines(&shader_src);
                     return Err(ShaderOptimizationError {
                         shader: shader.clone(),
-                        message: format!("{}\n{}", source, output.get_log()),
+                        message: format!("{}\n{}", source, process_log(output.get_log())),
                     });
                 }
+
+                // Remove #line preprocessor directives from the output
+                // let remove_preprocessor_lines =
+                //     regex::Regex::new(r#"#line[^\r\n]*(\r|\n|\r\n)"#).unwrap();
+                // let remove_preprocessor_lines = regex::Regex::new(r#"^.*line"#).unwrap();
+                // let processed_source = remove_preprocessor_lines
+                //     .replace_all(output.get_output().unwrap(), "plop plop");
+                let processed_source = output.get_output().unwrap();
 
                 let shader_path = Path::new(out_dir).join(format!(
                     "{}_{:?}.{}",
@@ -218,7 +234,7 @@ fn write_optimized_shaders(
                 ));
                 write_optimized_shader_file(
                     &shader_path,
-                    output.get_output().unwrap(),
+                    &processed_source,
                     &shader.shader_name,
                     &features,
                     &mut hasher,

@@ -24,7 +24,8 @@ debugger = ["hyper", "hyper-util", "http-body-util", "tokio", "serde_json", "url
 
 [build-dependencies]
 build-parallel = "0.1.2"
-glslopt = "0.1.14"
+glslopt = { path = "../../../third_party/rust/glslopt" }
+regex = "1.13.1"
 webrender_build = { version = "0.0.2", path = "../webrender_build" }
 
 [dependencies]

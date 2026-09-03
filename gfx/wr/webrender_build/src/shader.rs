@@ -77,20 +77,29 @@ impl ShaderSourceParser {
     /// prepended to the output stream.
     pub fn parse<F: FnMut(&str), G: Fn(&str) -> Cow<'static, str>>(
         &mut self,
+        filename: &str,
         source: Cow<'static, str>,
+        append_line_directives: bool,
         get_source: &G,
         output: &mut F,
     ) {
-        for line in source.lines() {
+        let sanitized_filename = filename.replace("\\", "/");
+        if append_line_directives {
+            output(&format!("#line 1 \"{}.glsl\"\n", sanitized_filename));
+        }
+        for (index, line) in source.lines().enumerate() {
             if let Some(imports) = line.strip_prefix(SHADER_IMPORT) {
                 // For each import, get the source, and recurse.
                 for import in imports.split(',') {
                     if self.included.insert(import.into()) {
                         let include = get_source(import);
-                        self.parse(include, get_source, output);
+                        self.parse(import, include, append_line_directives, get_source, output);
                     } else {
                         output(&format!("// {} is already included\n", import));
                     }
+                }
+                if append_line_directives {
+                    output(&format!("#line {} \"{}.glsl\"\n", index + 2, sanitized_filename));
                 }
             } else {
                 output(line);
@@ -153,7 +162,7 @@ pub fn do_build_shader_string<F: FnMut(&str), G: Fn(&str) -> Cow<'static, str>>(
    mut output: F,
 ) {
    build_shader_prefix_string(gl_version, features, kind, base_filename, &mut output);
-   build_shader_main_string(base_filename, get_source, &mut output);
+   build_shader_main_string(base_filename, true, get_source, &mut output);
 }
 
 /// Walks the prefix section of the shader string, which manages the various
@@ -226,12 +235,15 @@ pub fn build_shader_prefix_string<F: FnMut(&str)>(
 /// Walks the main .glsl file, including any imports.
 pub fn build_shader_main_string<F: FnMut(&str), G: Fn(&str) -> Cow<'static, str>>(
    base_filename: &str,
+   append_line_directive: bool,
    get_source: &G,
    output: &mut F,
 ) {
    let shared_source = get_source(base_filename);
    ShaderSourceParser::new().parse(
+       base_filename,
        shared_source,
+       append_line_directive,
        &|f| get_source(f),
        output
    );

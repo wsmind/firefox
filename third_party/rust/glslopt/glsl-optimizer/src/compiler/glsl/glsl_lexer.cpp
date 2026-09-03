@@ -2018,12 +2018,12 @@ YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
 #line 273 "src/compiler/glsl/glsl_lexer.ll"
 {
-                                   if (!yyextra->ARB_shading_language_include_enable) {
-                                      struct _mesa_glsl_parse_state *state = yyextra;
-                                      _mesa_glsl_error(yylloc, state,
-                                                       "ARB_shading_language_include required "
-                                                       "to use #line <line> \"<path>\"");
-                                   }
+                                   // if (!yyextra->ARB_shading_language_include_enable) {
+                                   //    struct _mesa_glsl_parse_state *state = yyextra;
+                                   //    _mesa_glsl_error(yylloc, state,
+                                   //                     "ARB_shading_language_include required "
+                                   //                     "to use #line <line> \"<path>\"");
+                                   // }
 
                                    /* Eat characters until the first digit is
                                     * encountered

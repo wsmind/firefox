@@ -775,6 +775,7 @@ impl ProgramSourceInfo {
                     let mut h = DefaultHasher::new();
                     build_shader_main_string(
                         &name,
+                        false,
                         &|f| get_unoptimized_shader_source(f, override_path),
                         &mut |s| h.write(s.as_bytes())
                     );
@@ -2211,8 +2212,25 @@ impl Device {
                 _ => panic!("Unexpected shader type {:x}", shader_type),
             };
             error!("Failed to compile {} shader: {}\n{}", type_str, name, log);
+
+            /// Prepends the line number to each line of a shader source.
+            fn enumerate_shader_source_lines(shader_src: &str) -> String {
+                // For some reason the glsl-opt errors are offset by 1 compared
+                // to the provided shader source string.
+                let mut out = format!("0\t|");
+                for (n, line) in shader_src.split('\n').enumerate() {
+                    let line_number = n + 1;
+                    out.push_str(&format!("{}\t|{}\n", line_number, line));
+                }
+                out
+            }
+
+            #[cfg(debug_assertions)]
+            debug!("Shader source:\n{}", enumerate_shader_source_lines(&new_source));
+
             #[cfg(debug_assertions)]
             Self::print_shader_errors(source, &log);
+
             Err(ShaderError::Compilation(name.to_string(), log))
         } else {
             if !log.is_empty() {
