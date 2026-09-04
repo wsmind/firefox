@@ -63,6 +63,7 @@ fn write_unoptimized_shaders(
         ShaderSourceParser::new().parse(
             Cow::Owned(shader_source_from_file(&glsl)),
             &|f| Cow::Owned(shader_source_from_file(&base.join(&format!("{}.glsl", f)))),
+            &mut OptionalShaderImportMap::new(None),
             &mut |s| hasher.write(s.as_bytes()),
         );
         let digest: ProgramSourceDigest = hasher.into();
@@ -104,13 +105,17 @@ struct ShaderOptimizationError {
 }
 
 /// Prepends the line number to each line of a shader source.
-fn enumerate_shader_source_lines(shader_src: &str) -> String {
+fn enumerate_shader_source_lines(shader_src: &str, import_map: &OptionalShaderImportMap) -> String {
     // For some reason the glsl-opt errors are offset by 1 compared
     // to the provided shader source string.
     let mut out = format!("0\t|");
     for (n, line) in shader_src.split('\n').enumerate() {
         let line_number = n + 1;
-        out.push_str(&format!("{}\t|{}\n", line_number, line));
+        if let Some((filename, input_line)) = import_map.query(line_number) {
+            out.push_str(&format!("{}:{}\t|{}\n", filename, input_line, line));
+        } else {
+            out.push_str(&format!("{}\t|{}\n", line_number, line));
+        }
     }
     out
 }
@@ -174,6 +179,8 @@ fn write_optimized_shaders(
             };
             let glslopt_ctx = glslopt::Context::new(target);
 
+            let mut import_map = OptionalShaderImportMap::new(Some(ShaderImportMap::new()));
+
             let features = shader
                 .config
                 .split(",")
@@ -181,7 +188,7 @@ fn write_optimized_shaders(
                 .collect::<Vec<_>>();
 
             let (vert_src, frag_src) =
-                build_shader_strings(shader.gl_version, &features, shader.shader_name, &|f| {
+                build_shader_strings(shader.gl_version, &features, shader.shader_name, &mut import_map, &|f| {
                     Cow::Owned(shader_source_from_file(
                         &shader_dir.join(&format!("{}.glsl", f)),
                     ))
@@ -205,7 +212,7 @@ fn write_optimized_shaders(
             .map(|(shader_type, shader_src, extension)| {
                 let output = glslopt_ctx.optimize(shader_type, shader_src.clone());
                 if !output.get_status() {
-                    let source = enumerate_shader_source_lines(&shader_src);
+                    let source = enumerate_shader_source_lines(&shader_src, &import_map);
                     return Err(ShaderOptimizationError {
                         shader: shader.clone(),
                         message: format!("{}\n{}", source, output.get_log()),

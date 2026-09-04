@@ -62,6 +62,102 @@ impl From<DefaultHasher> for ProgramSourceDigest {
 
 const SHADER_IMPORT: &str = "#include ";
 
+struct ImportRange {
+    filename: String,
+    input_line: usize,
+    output_line: usize,
+}
+
+// Keeps records of import ranges.
+//
+// Each entry represents the _start_ of a new range, the end
+// being implicitely the start of the next one, or the end of the file.
+pub struct ShaderImportMap {
+    import_map: Vec<ImportRange>,
+    current_line: usize,
+
+    // stores the return place after we pop a range
+    range_stack: Vec<(String, usize)>,
+}
+
+impl ShaderImportMap {
+    pub fn new() -> Self {
+        Self {
+            import_map: Vec::new(),
+            current_line: 1,
+
+            range_stack: Vec::new(),
+        }
+    }
+
+    pub fn next_line(&mut self) {
+        self.current_line += 1;
+    }
+
+    pub fn push_range(&mut self, filename: String) {
+        if let Some(range) = self.import_map.last() {
+            assert!(self.current_line >= range.output_line);
+            let line_offset = self.current_line - range.output_line;
+            self.range_stack.push((range.filename.clone(), range.input_line + line_offset));
+        }
+
+        self.import_map.push(ImportRange {
+            filename,
+            input_line: 1,
+            output_line: self.current_line,
+        });
+    }
+
+    pub fn pop_range(&mut self) {
+        if let Some((filename, input_line)) = self.range_stack.last() {
+            self.import_map.push(ImportRange {
+                filename: filename.clone(),
+                input_line: *input_line,
+                output_line: self.current_line,
+            });
+            self.range_stack.pop();
+        }
+    }
+
+    pub fn query(&self, output_line: usize) -> (String, usize) {
+        assert!(output_line >= 1);
+        for i in 0..self.import_map.len() - 1 {
+            let previous = &self.import_map[i];
+            let next = &self.import_map[i + 1];
+            if output_line >= previous.output_line && output_line < next.output_line {
+                let line_offset = output_line - previous.output_line;
+                return (previous.filename.clone(), previous.input_line + line_offset);
+            }
+        }
+
+        let last = self.import_map.last().unwrap();
+        (last.filename.clone(), last.input_line)
+    }
+}
+
+pub struct OptionalShaderImportMap(Option<ShaderImportMap>);
+
+impl OptionalShaderImportMap {
+    pub fn new(import_map: Option<ShaderImportMap>) -> Self {
+        Self(import_map)
+    }
+
+    pub fn next_line(&mut self) {
+        self.0.as_mut().map(|inner| inner.next_line());
+    }
+
+    pub fn push_range(&mut self, filename: String) {
+        self.0.as_mut().map(|inner| inner.push_range(filename));
+    }
+
+    pub fn pop_range(&mut self) {
+        self.0.as_mut().map(|inner| inner.pop_range());
+    }
+
+    pub fn query(&self, output_line: usize) -> Option<(String, usize)> {
+        self.0.as_ref().map(|inner| inner.query(output_line))
+    }
+}
 pub struct ShaderSourceParser {
     included: HashSet<String>,
 }
@@ -79,6 +175,7 @@ impl ShaderSourceParser {
         &mut self,
         source: Cow<'static, str>,
         get_source: &G,
+        import_map: &mut OptionalShaderImportMap,
         output: &mut F,
     ) {
         for line in source.lines() {
@@ -86,15 +183,19 @@ impl ShaderSourceParser {
                 // For each import, get the source, and recurse.
                 for import in imports.split(',') {
                     if self.included.insert(import.into()) {
+                        import_map.push_range(format!("{}.glsl", import));
                         let include = get_source(import);
-                        self.parse(include, get_source, output);
+                        self.parse(include, get_source, import_map, output);
+                        import_map.pop_range();
                     } else {
                         output(&format!("// {} is already included\n", import));
+                        import_map.next_line();
                     }
                 }
             } else {
                 output(line);
                 output("\n");
+                import_map.next_line();
             }
         }
     }
@@ -116,6 +217,7 @@ pub fn build_shader_strings<G: Fn(&str) -> Cow<'static, str>>(
     gl_version: ShaderVersion,
     features: &[&str],
     base_filename: &str,
+    import_map: &mut OptionalShaderImportMap,
     get_source: &G,
 ) -> (String, String) {
    let mut vs_source = String::new();
@@ -124,6 +226,7 @@ pub fn build_shader_strings<G: Fn(&str) -> Cow<'static, str>>(
        features,
        ShaderKind::Vertex,
        base_filename,
+       import_map,
        get_source,
        |s| vs_source.push_str(s),
    );
@@ -134,6 +237,7 @@ pub fn build_shader_strings<G: Fn(&str) -> Cow<'static, str>>(
        features,
        ShaderKind::Fragment,
        base_filename,
+       import_map,
        get_source,
        |s| fs_source.push_str(s),
    );
@@ -149,11 +253,12 @@ pub fn do_build_shader_string<F: FnMut(&str), G: Fn(&str) -> Cow<'static, str>>(
    features: &[&str],
    kind: ShaderKind,
    base_filename: &str,
+   import_map: &mut OptionalShaderImportMap,
    get_source: &G,
    mut output: F,
 ) {
-   build_shader_prefix_string(gl_version, features, kind, base_filename, &mut output);
-   build_shader_main_string(base_filename, get_source, &mut output);
+   build_shader_prefix_string(gl_version, features, kind, base_filename, import_map, &mut output);
+   build_shader_main_string(base_filename, import_map, get_source, &mut output);
 }
 
 /// Walks the prefix section of the shader string, which manages the various
@@ -163,8 +268,11 @@ pub fn build_shader_prefix_string<F: FnMut(&str)>(
    features: &[&str],
    kind: ShaderKind,
    base_filename: &str,
+   import_map: &mut OptionalShaderImportMap,
    output: &mut F,
 ) {
+    import_map.push_range("__prefix__".to_string());
+
     // GLSL requires that the version number comes first.
     let gl_version_string = match gl_version {
         ShaderVersion::Gl => "#version 150\n",
@@ -184,6 +292,7 @@ pub fn build_shader_prefix_string<F: FnMut(&str)>(
         }
     }
     output("\n");
+    import_map.next_line();
 
     // Define a constant depending on whether we are compiling VS or FS.
     let kind_string = match kind {
@@ -191,6 +300,7 @@ pub fn build_shader_prefix_string<F: FnMut(&str)>(
         ShaderKind::Fragment => "#define WR_FRAGMENT_SHADER\n",
     };
     output(kind_string);
+    import_map.next_line();
 
     // detect which platform we're targeting
     let is_macos = match std::env::var("CARGO_CFG_TARGET_OS") {
@@ -205,14 +315,17 @@ pub fn build_shader_prefix_string<F: FnMut(&str)>(
     };
     if is_macos {
         output("#define PLATFORM_MACOS\n");
+        import_map.next_line();
     } else if is_android {
         output("#define PLATFORM_ANDROID\n");
+        import_map.next_line();
     }
 
     // Define a constant for the vertex texture width.
     output("#define WR_MAX_VERTEX_TEXTURE_WIDTH ");
     output(&MAX_VERTEX_TEXTURE_WIDTH_STRING);
     output("U\n");
+    import_map.next_line();
 
     // Add any defines for features that were passed by the caller.
     for feature in features {
@@ -220,19 +333,28 @@ pub fn build_shader_prefix_string<F: FnMut(&str)>(
         output("#define WR_FEATURE_");
         output(feature);
         output("\n");
+        import_map.next_line();
     }
+
+    import_map.pop_range();
 }
 
 /// Walks the main .glsl file, including any imports.
 pub fn build_shader_main_string<F: FnMut(&str), G: Fn(&str) -> Cow<'static, str>>(
    base_filename: &str,
+   import_map: &mut OptionalShaderImportMap,
    get_source: &G,
    output: &mut F,
 ) {
+   import_map.push_range(format!("{}.glsl", base_filename));
+
    let shared_source = get_source(base_filename);
    ShaderSourceParser::new().parse(
        shared_source,
        &|f| get_source(f),
+       import_map,
        output
    );
+
+   import_map.pop_range();
 }

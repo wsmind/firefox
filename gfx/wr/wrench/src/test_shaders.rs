@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use webrender::ShaderKind;
-use webrender_build::shader::{ShaderFeatureFlags, ShaderVersion, build_shader_strings};
+use webrender_build::shader::{ShaderFeatureFlags, ShaderVersion, OptionalShaderImportMap, build_shader_strings};
 use webrender_build::shader::get_shader_features;
 use glsl_lang::ast::{InterpolationQualifierData, NodeContent, SingleDeclaration};
 use glsl_lang::ast::{StorageQualifierData, TranslationUnit, TypeSpecifierNonArrayData};
@@ -139,6 +139,7 @@ pub fn test_shaders() {
             let vert_name = format!("{}.vert", name);
             let frag_name = format!("{}.frag", name);
 
+            let mut import_map = OptionalShaderImportMap::new(None);
 
             let features = config
                 .split(",")
@@ -146,7 +147,7 @@ pub fn test_shaders() {
                 .collect::<Vec<_>>();
 
             let (vert_src, frag_src) =
-                build_shader_strings(ShaderVersion::Gles, &features, shader, &|f| {
+                build_shader_strings(ShaderVersion::Gles, &features, shader, &mut import_map, &|f| {
                     webrender::get_unoptimized_shader_source(f, None)
                 });
 

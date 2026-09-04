@@ -33,8 +33,7 @@ use std::{
     time::Duration,
 };
 use webrender_build::shader::{
-    ProgramSourceDigest, ShaderKind, ShaderVersion, build_shader_main_string,
-    build_shader_prefix_string, do_build_shader_string, shader_source_from_file,
+    OptionalShaderImportMap, ProgramSourceDigest, ShaderKind, ShaderVersion, build_shader_main_string, build_shader_prefix_string, do_build_shader_string, shader_source_from_file,
 };
 use malloc_size_of::MallocSizeOfOps;
 
@@ -766,6 +765,7 @@ impl ProgramSourceInfo {
                     &features,
                     ShaderKind::Vertex,
                     &name,
+                    &mut OptionalShaderImportMap::new(None),
                     &mut |s| hasher.write(s.as_bytes()),
                 );
 
@@ -775,6 +775,7 @@ impl ProgramSourceInfo {
                     let mut h = DefaultHasher::new();
                     build_shader_main_string(
                         &name,
+                        &mut OptionalShaderImportMap::new(None),
                         &|f| get_unoptimized_shader_source(f, override_path),
                         &mut |s| h.write(s.as_bytes())
                     );
@@ -3124,6 +3125,7 @@ impl Device {
             features,
             kind,
             base_filename,
+            &mut OptionalShaderImportMap::new(None),
             &|f| get_unoptimized_shader_source(f, self.resource_override_path.as_ref()),
             output,
         )
