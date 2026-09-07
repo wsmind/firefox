@@ -61,6 +61,7 @@ fn write_unoptimized_shaders(
         let base = glsl.parent().unwrap();
         assert!(base.is_dir());
         ShaderSourceParser::new().parse(
+            glsl.to_str().unwrap(),
             Cow::Owned(shader_source_from_file(&glsl)),
             &|f| Cow::Owned(shader_source_from_file(&base.join(&format!("{}.glsl", f)))),
             &mut OptionalShaderImportMap::new(None),
@@ -212,10 +213,11 @@ fn write_optimized_shaders(
             .map(|(shader_type, shader_src, extension)| {
                 let output = glslopt_ctx.optimize(shader_type, shader_src.clone());
                 if !output.get_status() {
+                    import_map.dump();
                     let source = enumerate_shader_source_lines(&shader_src, &import_map);
                     return Err(ShaderOptimizationError {
                         shader: shader.clone(),
-                        message: format!("{}\n{}", source, output.get_log()),
+                        message: format!("{}\n{}", source, import_map.process_log(output.get_log()).unwrap()),
                     });
                 }
 
