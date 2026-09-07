@@ -54,6 +54,8 @@ fn write_unoptimized_shaders(
         let shader_name = glsl.file_name().unwrap().to_str().unwrap();
         let shader_name = shader_name.replace(".glsl", "");
 
+        let mut source_map = ShaderSourceMap::new();
+
         // Compute a digest of the #include-expanded shader source. We store
         // this as a literal alongside the source string so that we don't need
         // to hash large strings at runtime.
@@ -61,10 +63,9 @@ fn write_unoptimized_shaders(
         let base = glsl.parent().unwrap();
         assert!(base.is_dir());
         ShaderSourceParser::new().parse(
-            glsl.to_str().unwrap(),
-            Cow::Owned(shader_source_from_file(&glsl)),
+            &shader_name,
             &|f| Cow::Owned(shader_source_from_file(&base.join(&format!("{}.glsl", f)))),
-            &mut OptionalShaderImportMap::new(None),
+            &mut source_map,
             &mut |s| hasher.write(s.as_bytes()),
         );
         let digest: ProgramSourceDigest = hasher.into();
@@ -103,22 +104,6 @@ struct ShaderOptimizationOutput {
 struct ShaderOptimizationError {
     shader: ShaderOptimizationInput,
     message: String,
-}
-
-/// Prepends the line number to each line of a shader source.
-fn enumerate_shader_source_lines(shader_src: &str, import_map: &OptionalShaderImportMap) -> String {
-    // For some reason the glsl-opt errors are offset by 1 compared
-    // to the provided shader source string.
-    let mut out = format!("0\t|");
-    for (n, line) in shader_src.split('\n').enumerate() {
-        let line_number = n + 1;
-        if let Some((filename, input_line)) = import_map.query(line_number) {
-            out.push_str(&format!("{}:{}\t|{}\n", filename, input_line, line));
-        } else {
-            out.push_str(&format!("{}\t|{}\n", line_number, line));
-        }
-    }
-    out
 }
 
 fn write_optimized_shaders(
@@ -180,16 +165,14 @@ fn write_optimized_shaders(
             };
             let glslopt_ctx = glslopt::Context::new(target);
 
-            let mut import_map = OptionalShaderImportMap::new(Some(ShaderImportMap::new()));
-
             let features = shader
                 .config
                 .split(",")
                 .filter(|f| !f.is_empty())
                 .collect::<Vec<_>>();
 
-            let (vert_src, frag_src) =
-                build_shader_strings(shader.gl_version, &features, shader.shader_name, &mut import_map, &|f| {
+            let (vert_src, frag_src, vert_src_map, frag_src_map) =
+                build_shader_strings(shader.gl_version, &features, shader.shader_name, &|f| {
                     Cow::Owned(shader_source_from_file(
                         &shader_dir.join(&format!("{}.glsl", f)),
                     ))
@@ -207,17 +190,15 @@ fn write_optimized_shaders(
             let mut hasher = DefaultHasher::new();
 
             let [vert_file_path, frag_file_path] = [
-                (glslopt::ShaderType::Vertex, vert_src, "vert"),
-                (glslopt::ShaderType::Fragment, frag_src, "frag"),
+                (glslopt::ShaderType::Vertex, vert_src, vert_src_map, "vert"),
+                (glslopt::ShaderType::Fragment, frag_src, frag_src_map, "frag"),
             ]
-            .map(|(shader_type, shader_src, extension)| {
+            .map(|(shader_type, shader_src, shader_src_map, extension)| {
                 let output = glslopt_ctx.optimize(shader_type, shader_src.clone());
                 if !output.get_status() {
-                    import_map.dump();
-                    let source = enumerate_shader_source_lines(&shader_src, &import_map);
                     return Err(ShaderOptimizationError {
                         shader: shader.clone(),
-                        message: format!("{}\n{}", source, import_map.process_log(output.get_log()).unwrap()),
+                        message: shader_src_map.process_log(output.get_log()),
                     });
                 }
 
@@ -283,7 +264,8 @@ fn write_optimized_shaders(
         }
         Err(err) => match err {
             build_parallel::Error::BuildError(err) => {
-                panic!("Error optimizing shader {:?}: {}", err.shader, err.message)
+                let ShaderOptimizationInput { shader_name, config, gl_version } = &err.shader;
+                panic!("Error optimizing shader '{}' [{}] ({:?}):\n{}", shader_name, config, gl_version, err.message)
             }
             _ => panic!("Error optimizing shaders."),
         },
