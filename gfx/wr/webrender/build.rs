@@ -265,7 +265,7 @@ fn write_optimized_shaders(
         Err(err) => match err {
             build_parallel::Error::BuildError(err) => {
                 let ShaderOptimizationInput { shader_name, config, gl_version } = &err.shader;
-                panic!("Error optimizing shader '{}', features=[{}], gl_version={:?}:\n{}", shader_name, config, gl_version, err.message)
+                panic!("Error optimizing shader '{}', features=[{}], gl_version={:?}:\n\n{}", shader_name, config, gl_version, err.message)
             }
             _ => panic!("Error optimizing shaders."),
         },
