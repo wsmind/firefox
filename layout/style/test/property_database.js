@@ -14726,7 +14726,7 @@ if (IsCSSPropertyPrefEnabled("layout.css.corner-shape.enabled")) {
   const cornerShapeLonghand = {
     inherited: false,
     type: CSS_TYPE_LONGHAND,
-    initial_values: ["round"],
+    initial_values: ["round", "superellipse(1)"],
     other_values: [
       "scoop",
       "bevel",
@@ -14734,7 +14734,6 @@ if (IsCSSPropertyPrefEnabled("layout.css.corner-shape.enabled")) {
       "square",
       "squircle",
       "superellipse(0)",
-      "superellipse(1)",
       "superellipse(2)",
       "superellipse(-1)",
       "superellipse(0.5)",
@@ -14750,7 +14749,6 @@ if (IsCSSPropertyPrefEnabled("layout.css.corner-shape.enabled")) {
       "superellipse(round)",
       "superellipse(1, 2)",
       "superellipse 1",
-      "round scoop",
     ],
   };
   Object.assign(gCSSProperties, {
