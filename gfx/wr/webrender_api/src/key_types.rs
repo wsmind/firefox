@@ -186,7 +186,7 @@ impl From<BorderRadiusAu> for BorderRadius {
 }
 
 /// Au-quantized border side, for use as a fragment of an interning key.
-#[derive(Clone, Debug, Hash, MallocSizeOf, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, MallocSizeOf, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BorderSideAu {
     pub color: ColorU,
     pub style: BorderStyle,
@@ -211,7 +211,7 @@ impl From<BorderSideAu> for BorderSide {
 }
 
 /// Au-quantized normal border, for use as an interning key fragment.
-#[derive(Debug, Clone, Hash, Eq, MallocSizeOf, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, Eq, MallocSizeOf, PartialEq, Serialize, Deserialize)]
 pub struct NormalBorderAu {
     pub left: BorderSideAu,
     pub right: BorderSideAu,
