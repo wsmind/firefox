@@ -1263,6 +1263,9 @@ fn prepare_tiles(
             QuadClipShape::Mask { .. } => {
                 panic!("bug: image clips unexpected in this path");
             }
+            QuadClipShape::Border { .. } => {
+                panic!("bug: border clips unexpected in this path");
+            }
         }
     }
 
@@ -1899,6 +1902,7 @@ fn prepare_clip_task(
             // TODO(gw): How to efficiently handle if the image-mask rect doesn't cover local prim rect?
             return;
         }
+        QuadClipShape::Border { .. } => todo!()
     };
 
     let clip_spatial_node = spatial_tree.get_spatial_node(clip.spatial_node);

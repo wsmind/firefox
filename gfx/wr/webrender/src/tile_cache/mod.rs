@@ -24,7 +24,7 @@ use crate::gpu_types::ZBufferId;
 use crate::internal_types::{FastHashMap, FrameId, Filter};
 use crate::invalidation::{InvalidationReason, DirtyRegion, PrimitiveCompareResult};
 use crate::invalidation::cached_surface::{CachedSurface, TileUpdateDirtyContext, TileUpdateDirtyState, PrimitiveDependencyInfo};
-use crate::invalidation::vert_buffer::{CornersCache, VertRange};
+use crate::invalidation::vert_buffer::{CornersCache};
 use crate::invalidation::compare::{PrimitiveDependency, ImageDependency};
 use crate::invalidation::compare::PrimitiveComparisonKey;
 use crate::invalidation::compare::{OpacityBindingInfo, ColorBindingInfo};
@@ -2838,22 +2838,13 @@ impl TileCacheInstance {
         // Compute scratch ranges for clips once, outside the tile loop.
         // Actual quantization into per-tile vert_data happens inside add_prim_dependency.
         for clip_instance in clip_instances {
-            let clip = &data_stores.clip[clip_instance.handle];
-            let clip_local_rect = match clip.item.kind {
-                ClipItemKind::Rectangle { .. }
-                | ClipItemKind::RoundedRectangle { .. }
-                | ClipItemKind::Image { .. } => Some(clip_instance.clip_rect),
-            };
-            let clip_scratch = match clip_local_rect {
-                Some(rect) => self.corners_cache.compute_to_scratch(
-                    rect,
-                    clip_instance.spatial_node_index,
-                    self.spatial_node_index,
-                    self.local_to_raster,
-                    frame_context.spatial_tree,
-                ),
-                None => VertRange::INVALID,
-            };
+            let clip_scratch = self.corners_cache.compute_to_scratch(
+                clip_instance.clip_rect,
+                clip_instance.spatial_node_index,
+                self.spatial_node_index,
+                self.local_to_raster,
+                frame_context.spatial_tree,
+            );
             prim_info.clips.push((clip_instance.handle.uid(), clip_scratch));
         }
 

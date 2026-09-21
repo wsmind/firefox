@@ -162,6 +162,7 @@ pub enum DisplayItem {
     RectClip(RectClipDisplayItem),
     RoundedRectClip(RoundedRectClipDisplayItem),
     ImageMaskClip(ImageMaskClipDisplayItem),
+    BorderClip(BorderClipDisplayItem),
     ClipChain(ClipChainItem),
 
     // Spaces and Frames that content can be scoped under.
@@ -206,6 +207,7 @@ pub enum DebugDisplayItem {
     ImageMaskClip(ImageMaskClipDisplayItem),
     RoundedRectClip(RoundedRectClipDisplayItem),
     RectClip(RectClipDisplayItem),
+    BorderClip(BorderClipDisplayItem),
     ClipChain(ClipChainItem, Vec<ClipId>),
 
     Iframe(IframeDisplayItem),
@@ -248,6 +250,15 @@ pub struct RoundedRectClipDisplayItem {
     /// ClipOut edge must stay a constant distance from the snapped element
     /// (bug 2052033). All public callers leave this 0.
     pub snap_outset: f32,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
+pub struct BorderClipDisplayItem {
+    pub id: ClipId,
+    pub spatial_id: SpatialId,
+    pub clip_rect: LayoutRect,
+    pub widths: LayoutSideOffsets,
+    pub details: NormalBorder,
 }
 
 /// The minimum and maximum allowable offset for a sticky frame in a single dimension.
@@ -2418,6 +2429,7 @@ impl DisplayItem {
             DisplayItem::RectClip(..) => "rect_clip",
             DisplayItem::RoundedRectClip(..) => "rounded_rect_clip",
             DisplayItem::ImageMaskClip(..) => "image_mask_clip",
+            DisplayItem::BorderClip(..) => "border_clip",
             DisplayItem::ClipChain(..) => "clip_chain",
             DisplayItem::ConicGradient(..) => "conic_gradient",
             DisplayItem::Gradient(..) => "gradient",

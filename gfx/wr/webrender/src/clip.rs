@@ -92,7 +92,7 @@
 //! [segment.rs]: ../segment/index.html
 //!
 
-use api::{BorderRadius, ClipMode, ImageMask, ClipId, ClipChainId};
+use api::{BorderRadius, ClipChainId, ClipId, ClipMode, ImageMask, NormalBorder};
 use api::{FillRule, ImageKey, ImageRendering};
 use api::units::*;
 use crate::image_tiling::{self, Repetition};
@@ -528,6 +528,16 @@ impl ClipTreeBuilder {
 
     /// Define a image mask clip
     pub fn define_image_mask_clip(
+        &mut self,
+        id: ClipId,
+        handle: ClipDataHandle,
+        spatial_node_index: SpatialNodeIndex,
+        clip_rect: LayoutRect,
+    ) {
+        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect: clip_rect.into(), snap_outset: 0.0 });
+    }
+
+    pub fn define_border_clip(
         &mut self,
         id: ClipId,
         handle: ClipDataHandle,
@@ -983,6 +993,12 @@ impl From<ClipItemKey> for ClipNode {
             ClipItemKeyKind::ImageMask(image, _) => {
                 ClipItemKind::Image {
                     image,
+                }
+            }
+            ClipItemKeyKind::Border(widths, details) => {
+                ClipItemKind::Border {
+                    widths: LayoutSideOffsets::from_au(widths),
+                    details: details.into(),
                 }
             }
         };
@@ -1455,6 +1471,15 @@ impl ClipStore {
                     }),
                 );
             }
+            ClipItemKind::Border { widths, details } => {
+                dest.push_border(
+                    instance.clip_rect,
+                    instance.spatial_node_index,
+                    widths,
+                    details,
+                    uid,
+                );
+            }
         }
     }
 
@@ -1561,7 +1586,8 @@ impl ClipStore {
                 // inner rects for now
                 ClipItemKind::Rectangle { mode: ClipMode::ClipOut, .. } |
                 ClipItemKind::Image { .. } |
-                ClipItemKind::RoundedRectangle { mode: ClipMode::ClipOut, .. } => {
+                ClipItemKind::RoundedRectangle { mode: ClipMode::ClipOut, .. } |
+                ClipItemKind::Border { .. }  => {
                     return None;
                 }
                 // Normal Clip rects are already handled by the clip-chain pic_coverage_rect,
@@ -1694,7 +1720,8 @@ impl ClipStore {
                         needs_mask |= match node.item.kind {
                             ClipItemKind::Rectangle { mode: ClipMode::ClipOut, .. } |
                             ClipItemKind::RoundedRectangle { .. } |
-                            ClipItemKind::Image { .. } => {
+                            ClipItemKind::Image { .. } |
+                            ClipItemKind::Border { .. } => {
                                 true
                             }
 
@@ -1788,6 +1815,7 @@ pub enum ClipItemKeyKind {
     Rectangle(ClipMode),
     RoundedRectangle(BorderRadiusAu, LayoutSideOffsetsAu, ClipMode),
     ImageMask(ImageKey, Option<PolygonDataHandle>),
+    Border(LayoutSideOffsetsAu, api::key_types::NormalBorderAu),
 }
 
 impl ClipItemKeyKind {
@@ -1815,13 +1843,21 @@ impl ClipItemKeyKind {
         )
     }
 
+    pub fn border(width: LayoutSideOffsets, details: NormalBorder) -> Self {
+        ClipItemKeyKind::Border(
+            width.to_au(),
+            details.into(),
+        )
+    }
+
     pub fn node_kind(&self) -> ClipNodeKind {
         match *self {
             ClipItemKeyKind::Rectangle(ClipMode::Clip) => ClipNodeKind::Rectangle,
 
             ClipItemKeyKind::Rectangle(ClipMode::ClipOut) |
             ClipItemKeyKind::RoundedRectangle(..) |
-            ClipItemKeyKind::ImageMask(..) => ClipNodeKind::Complex,
+            ClipItemKeyKind::ImageMask(..) |
+            ClipItemKeyKind::Border(..) => ClipNodeKind::Complex,
         }
     }
 }
@@ -1864,6 +1900,10 @@ pub enum ClipItemKind {
     },
     Image {
         image: ImageKey,
+    },
+    Border {
+        widths: LayoutSideOffsets,
+        details: NormalBorder,
     },
 }
 
@@ -1937,6 +1977,7 @@ impl ClipItemKind {
             ClipItemKind::RoundedRectangle { mode: ClipMode::Clip, .. } => Some(clip_rect),
             ClipItemKind::RoundedRectangle { mode: ClipMode::ClipOut, .. } => None,
             ClipItemKind::Image { .. } => Some(clip_rect),
+            ClipItemKind::Border { .. } => Some(clip_rect),
         }
     }
 
@@ -1962,7 +2003,8 @@ impl ClipItemKind {
                 let inner_clip_rect = extract_inner_rect_safe(&clip_rect, &clamped, &inset);
                 (clip_rect, inner_clip_rect, mode)
             }
-            ClipItemKind::Image { .. } => {
+            ClipItemKind::Image { .. } |
+            ClipItemKind::Border { .. } => {
                 (clip_rect, None, ClipMode::Clip)
             }
         };
@@ -2078,7 +2120,8 @@ impl ClipItemKind {
                     }
                 }
             }
-            ClipItemKind::Image { .. } => {
+            ClipItemKind::Image { .. } |
+            ClipItemKind::Border { .. } => {
                 let rect = clip_rect;
                 match rect.intersection(prim_rect) {
                     Some(..) => {

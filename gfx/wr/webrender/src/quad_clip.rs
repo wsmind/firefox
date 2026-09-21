@@ -15,7 +15,7 @@
 //! of a `ClipChainInstance`. It deliberately lives in `clip.rs`, on the side of
 //! the split that knows about both.
 
-use api::{BorderRadius, ClipMode, units::*};
+use api::{BorderRadius, ClipMode, NormalBorder, units::*};
 
 use crate::render_task_graph::RenderTaskId;
 use crate::spatial_tree::SpatialNodeIndex;
@@ -37,6 +37,10 @@ pub enum QuadClipShape {
     Mask {
         first_tile: u32,
         tile_count: u32,
+    },
+    Border {
+        widths: LayoutSideOffsets,
+        details: NormalBorder,
     },
 }
 
@@ -207,6 +211,22 @@ impl QuadClipStack {
 
         self.clips.push(QuadClip {
             shape: QuadClipShape::Mask { first_tile, tile_count },
+            rect,
+            spatial_node,
+            uid,
+        });
+    }
+
+    pub fn push_border(
+        &mut self,
+        rect: LayoutRect,
+        spatial_node: SpatialNodeIndex,
+        widths: LayoutSideOffsets,
+        details: NormalBorder,
+        uid: u64,
+    ) {
+        self.clips.push(QuadClip {
+            shape: QuadClipShape::Border { widths, details },
             rect,
             spatial_node,
             uid,

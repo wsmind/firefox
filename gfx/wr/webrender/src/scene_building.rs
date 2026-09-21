@@ -35,7 +35,7 @@
 //!  - backdrop filters (see add_backdrop_filter)
 //!
 
-use api::{AlphaType, BorderDetails, BorderDisplayItem, BuiltDisplayList, BuiltDisplayListIter, PrimitiveFlags, SnapshotInfo};
+use api::{AlphaType, BorderDetails, BorderDisplayItem, BuiltDisplayList, BuiltDisplayListIter, NormalBorder, PrimitiveFlags, SnapshotInfo};
 use api::{ClipId, ColorF, CommonItemProperties, ComplexClipRegion, ComponentTransferFuncType, RasterSpace};
 use api::{DebugFlags, DisplayItem, DisplayItemRef, ExternalScrollId, FilterData};
 use api::{FilterOp, FontInstanceKey, FontSize, GlyphInstance, GlyphOptions, GlyphShadowMode, GradientStop};
@@ -1653,6 +1653,17 @@ impl<'a> SceneBuilder<'a> {
                     item.points(),
                 );
             }
+            DisplayItem::BorderClip(ref info) => {
+                tracy_rs::profile_scope!("border_clip");
+
+                self.add_border_clip_node(
+                    info.id,
+                    info.spatial_id,
+                    &info.clip_rect,
+                    info.widths,
+                    &info.details,
+                );
+            }
             DisplayItem::RoundedRectClip(ref info) => {
                 tracy_rs::profile_scope!("rounded_clip");
 
@@ -2595,6 +2606,36 @@ impl<'a> SceneBuilder<'a> {
             handle,
             spatial_node_index,
             mask_rect,
+        );
+    }
+
+    fn add_border_clip_node(
+        &mut self,
+        new_node_id: ClipId,
+        spatial_id: SpatialId,
+        clip_rect: &LayoutRect,
+        widths: LayoutSideOffsets,
+        details: &NormalBorder,
+    ) {
+        let spatial_node_index = self.get_space(spatial_id);
+
+        let item = ClipItemKey {
+            kind: ClipItemKeyKind::border(widths, *details),
+        };
+        let handle = self
+            .interners
+            .clip
+            .intern(&item, || {
+                ClipInternData {
+                    key: item,
+                }
+            });
+        
+        self.clip_tree_builder.define_border_clip(
+            new_node_id,
+            handle,
+            spatial_node_index,
+            *clip_rect,
         );
     }
 
