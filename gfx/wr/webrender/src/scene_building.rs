@@ -1664,6 +1664,19 @@ impl<'a> SceneBuilder<'a> {
                     &info.details,
                 );
             }
+            DisplayItem::GradientClip(ref info) => {
+                tracy_rs::profile_scope!("gradient_clip");
+
+                self.add_gradient_clip_node(
+                    info.id,
+                    info.spatial_id,
+                    &info.clip_rect,
+                    info.bounds,
+                    info.tile_size,
+                    info.tile_spacing,
+                    info.gradient,
+                );
+            }
             DisplayItem::RoundedRectClip(ref info) => {
                 tracy_rs::profile_scope!("rounded_clip");
 
