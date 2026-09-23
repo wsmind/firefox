@@ -163,6 +163,7 @@ pub enum DisplayItem {
     RoundedRectClip(RoundedRectClipDisplayItem),
     ImageMaskClip(ImageMaskClipDisplayItem),
     BorderClip(BorderClipDisplayItem),
+    GradientClip(GradientClipDisplayItem),
     ClipChain(ClipChainItem),
 
     // Spaces and Frames that content can be scoped under.
@@ -208,6 +209,7 @@ pub enum DebugDisplayItem {
     RoundedRectClip(RoundedRectClipDisplayItem),
     RectClip(RectClipDisplayItem),
     BorderClip(BorderClipDisplayItem),
+    GradientClip(GradientClipDisplayItem),
     ClipChain(ClipChainItem, Vec<ClipId>),
 
     Iframe(IframeDisplayItem),
@@ -259,6 +261,19 @@ pub struct BorderClipDisplayItem {
     pub clip_rect: LayoutRect,
     pub widths: LayoutSideOffsets,
     pub details: NormalBorder,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
+pub struct GradientClipDisplayItem {
+    pub id: ClipId,
+    pub spatial_id: SpatialId,
+    pub clip_rect: LayoutRect,
+
+    // see GradientDisplayItem
+    pub bounds: LayoutRect,
+    pub tile_size: LayoutSize,
+    pub tile_spacing: LayoutSize,
+    pub gradient: Gradient,
 }
 
 /// The minimum and maximum allowable offset for a sticky frame in a single dimension.
@@ -2430,6 +2445,7 @@ impl DisplayItem {
             DisplayItem::RoundedRectClip(..) => "rounded_rect_clip",
             DisplayItem::ImageMaskClip(..) => "image_mask_clip",
             DisplayItem::BorderClip(..) => "border_clip",
+            DisplayItem::GradientClip(..) => "gradient_clip",
             DisplayItem::ClipChain(..) => "clip_chain",
             DisplayItem::ConicGradient(..) => "conic_gradient",
             DisplayItem::Gradient(..) => "gradient",
