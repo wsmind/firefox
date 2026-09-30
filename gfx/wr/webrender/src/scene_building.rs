@@ -1666,15 +1666,23 @@ impl<'a> SceneBuilder<'a> {
             DisplayItem::GradientClip(ref info) => {
                 tracy_rs::profile_scope!("gradient_clip");
 
-                self.add_gradient_clip_node(
-                    info.id,
-                    info.spatial_id,
-                    &info.clip_rect,
+                if let Some(prim_key_kind) = linear_gradient_prim(
                     info.bounds,
+                    info.gradient.start,
+                    info.gradient.end,
+                    read_gradient_stops(item.gradient_stops()),
+                    info.gradient.extend_mode,
                     info.tile_size,
                     info.tile_spacing,
-                    info.gradient,
-                );
+                    None,
+                ) {
+                    self.add_gradient_clip_node(
+                        info.id,
+                        info.spatial_id,
+                        &info.clip_rect,
+                        prim_key_kind,
+                    );
+                }
             }
             DisplayItem::RoundedRectClip(ref info) => {
                 tracy_rs::profile_scope!("rounded_clip");
@@ -2656,11 +2664,12 @@ impl<'a> SceneBuilder<'a> {
         new_node_id: ClipId,
         spatial_id: SpatialId,
         clip_rect: &LayoutRect,
+        info: &LayoutPrimitiveInfo,
     ) {
         let spatial_node_index = self.get_space(spatial_id);
 
         let item = ClipItemKey {
-            kind: ClipItemKeyKind::gradient(),
+            kind: ClipItemKeyKind::gradient(bounds, tile_size, tile_spacing, gradient),
         };
         let handle = self
             .interners
@@ -2671,12 +2680,12 @@ impl<'a> SceneBuilder<'a> {
                 }
             });
         
-        self.clip_tree_builder.define_border_clip(
-            new_node_id,
-            handle,
-            spatial_node_index,
-            *clip_rect,
-        );
+        // self.clip_tree_builder.define_gradient_clip(
+        //     new_node_id,
+        //     handle,
+        //     spatial_node_index,
+        //     *clip_rect,
+        // );
     }
 
     /// Add a new rectangle clip, positioned by the spatial node in the `space_and_clip`.

@@ -1001,9 +1001,12 @@ impl From<ClipItemKey> for ClipNode {
                     details: details.into(),
                 }
             }
-            ClipItemKeyKind::Gradient => {
+            ClipItemKeyKind::Gradient(bounds, tile_size, tile_spacing, gradient) => {
                 ClipItemKind::Gradient {
-
+                    bounds,
+                    tile_size,
+                    tile_spacing,
+                    gradient,
                 }
             }
         };
@@ -1485,6 +1488,12 @@ impl ClipStore {
                     uid,
                 );
             }
+            ClipItemKind::Gradient { .. } => {
+                // dest.push_gradient(
+                //     instance.clip_rect,
+
+                // );
+            }
         }
     }
 
@@ -1592,7 +1601,8 @@ impl ClipStore {
                 ClipItemKind::Rectangle { mode: ClipMode::ClipOut, .. } |
                 ClipItemKind::Image { .. } |
                 ClipItemKind::RoundedRectangle { mode: ClipMode::ClipOut, .. } |
-                ClipItemKind::Border { .. }  => {
+                ClipItemKind::Border { .. } |
+                ClipItemKind::Gradient { .. }  => {
                     return None;
                 }
                 // Normal Clip rects are already handled by the clip-chain pic_coverage_rect,
@@ -1726,7 +1736,8 @@ impl ClipStore {
                             ClipItemKind::Rectangle { mode: ClipMode::ClipOut, .. } |
                             ClipItemKind::RoundedRectangle { .. } |
                             ClipItemKind::Image { .. } |
-                            ClipItemKind::Border { .. } => {
+                            ClipItemKind::Border { .. } |
+                            ClipItemKind::Gradient { .. } => {
                                 true
                             }
 
@@ -1821,7 +1832,7 @@ pub enum ClipItemKeyKind {
     RoundedRectangle(BorderRadiusAu, LayoutSideOffsetsAu, ClipMode),
     ImageMask(ImageKey, Option<PolygonDataHandle>),
     Border(LayoutSideOffsetsAu, api::key_types::NormalBorderAu),
-    Gradient,
+    Gradient(LayoutRect, LayoutSize, LayoutSize, Gradient),
 }
 
 impl ClipItemKeyKind {
@@ -1856,8 +1867,18 @@ impl ClipItemKeyKind {
         )
     }
 
-    pub fn gradient() -> Self {
-        ClipItemKeyKind::Gradient
+    pub fn gradient(
+        bounds: LayoutRect,
+        tile_size: LayoutSize,
+        tile_spacing: LayoutSize,
+        gradient: Gradient,
+    ) -> Self {
+        ClipItemKeyKind::Gradient(
+            bounds,
+            tile_size,
+            tile_spacing,
+            gradient,
+        )
     }
 
     pub fn node_kind(&self) -> ClipNodeKind {
@@ -1917,7 +1938,10 @@ pub enum ClipItemKind {
         details: NormalBorder,
     },
     Gradient {
-
+        bounds: LayoutRect,
+        tile_size: LayoutSize,
+        tile_spacing: LayoutSize,
+        gradient: Gradient,
     },
 }
 

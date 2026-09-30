@@ -42,6 +42,7 @@ pub enum QuadClipShape {
         widths: LayoutSideOffsets,
         details: NormalBorder,
     },
+    Gradient {},
 }
 
 /// One clip applied to a quad primitive.
@@ -227,6 +228,20 @@ impl QuadClipStack {
     ) {
         self.clips.push(QuadClip {
             shape: QuadClipShape::Border { widths, details },
+            rect,
+            spatial_node,
+            uid,
+        });
+    }
+
+    pub fn push_gradient(
+        &mut self,
+        rect: LayoutRect,
+        spatial_node: SpatialNodeIndex,
+        uid: u64,
+    ) {
+        self.clips.push(QuadClip {
+            shape: QuadClipShape::Gradient { },
             rect,
             spatial_node,
             uid,
