@@ -2651,6 +2651,34 @@ impl<'a> SceneBuilder<'a> {
         );
     }
 
+    fn add_gradient_clip_node(
+        &mut self,
+        new_node_id: ClipId,
+        spatial_id: SpatialId,
+        clip_rect: &LayoutRect,
+    ) {
+        let spatial_node_index = self.get_space(spatial_id);
+
+        let item = ClipItemKey {
+            kind: ClipItemKeyKind::gradient(),
+        };
+        let handle = self
+            .interners
+            .clip
+            .intern(&item, || {
+                ClipInternData {
+                    key: item,
+                }
+            });
+        
+        self.clip_tree_builder.define_border_clip(
+            new_node_id,
+            handle,
+            spatial_node_index,
+            *clip_rect,
+        );
+    }
+
     /// Add a new rectangle clip, positioned by the spatial node in the `space_and_clip`.
     fn add_rect_clip_node(
         &mut self,

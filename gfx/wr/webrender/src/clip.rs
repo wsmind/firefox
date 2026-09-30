@@ -1001,6 +1001,11 @@ impl From<ClipItemKey> for ClipNode {
                     details: details.into(),
                 }
             }
+            ClipItemKeyKind::Gradient => {
+                ClipItemKind::Gradient {
+
+                }
+            }
         };
 
         ClipNode {
@@ -1816,6 +1821,7 @@ pub enum ClipItemKeyKind {
     RoundedRectangle(BorderRadiusAu, LayoutSideOffsetsAu, ClipMode),
     ImageMask(ImageKey, Option<PolygonDataHandle>),
     Border(LayoutSideOffsetsAu, api::key_types::NormalBorderAu),
+    Gradient,
 }
 
 impl ClipItemKeyKind {
@@ -1850,6 +1856,10 @@ impl ClipItemKeyKind {
         )
     }
 
+    pub fn gradient() -> Self {
+        ClipItemKeyKind::Gradient
+    }
+
     pub fn node_kind(&self) -> ClipNodeKind {
         match *self {
             ClipItemKeyKind::Rectangle(ClipMode::Clip) => ClipNodeKind::Rectangle,
@@ -1857,7 +1867,8 @@ impl ClipItemKeyKind {
             ClipItemKeyKind::Rectangle(ClipMode::ClipOut) |
             ClipItemKeyKind::RoundedRectangle(..) |
             ClipItemKeyKind::ImageMask(..) |
-            ClipItemKeyKind::Border(..) => ClipNodeKind::Complex,
+            ClipItemKeyKind::Border(..) |
+            ClipItemKeyKind::Gradient(..) => ClipNodeKind::Complex,
         }
     }
 }
@@ -1904,6 +1915,9 @@ pub enum ClipItemKind {
     Border {
         widths: LayoutSideOffsets,
         details: NormalBorder,
+    },
+    Gradient {
+
     },
 }
 
@@ -1978,6 +1992,7 @@ impl ClipItemKind {
             ClipItemKind::RoundedRectangle { mode: ClipMode::ClipOut, .. } => None,
             ClipItemKind::Image { .. } => Some(clip_rect),
             ClipItemKind::Border { .. } => Some(clip_rect),
+            ClipItemKind::Gradient { .. } => Some(clip_rect),
         }
     }
 
@@ -2004,7 +2019,8 @@ impl ClipItemKind {
                 (clip_rect, inner_clip_rect, mode)
             }
             ClipItemKind::Image { .. } |
-            ClipItemKind::Border { .. } => {
+            ClipItemKind::Border { .. } |
+            ClipItemKind::Gradient { .. } => {
                 (clip_rect, None, ClipMode::Clip)
             }
         };
@@ -2121,7 +2137,8 @@ impl ClipItemKind {
                 }
             }
             ClipItemKind::Image { .. } |
-            ClipItemKind::Border { .. } => {
+            ClipItemKind::Border { .. } |
+            ClipItemKind::Gradient { .. } => {
                 let rect = clip_rect;
                 match rect.intersection(prim_rect) {
                     Some(..) => {
