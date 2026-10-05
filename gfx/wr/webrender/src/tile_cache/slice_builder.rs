@@ -558,7 +558,7 @@ fn create_tile_cache(
             match clip_node_data.key.kind {
                 ClipItemKeyKind::ImageMask(..) |
                 ClipItemKeyKind::Border(..) |
-                ClipItemKeyKind::Gradient(..) |
+                //ClipItemKeyKind::Gradient(..) |
                 ClipItemKeyKind::Rectangle(ClipMode::ClipOut) |
                 ClipItemKeyKind::RoundedRectangle(_, _, ClipMode::ClipOut) => {
                     // Has an image-mask or clip-out clip, we can't handle this as a shared clip

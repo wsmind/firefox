@@ -100,10 +100,10 @@ impl HitTestClipNode {
                 // TODO(wsmind): implement hit-testing for borders (taking widths and corner-shapes into account)
                 HitTestRegion::RoundedRectangle(clip_rect, details.radius.into(), ClipMode::Clip)
             }
-            ClipItemKeyKind::Gradient { .. } => {
-                // TODO(wsmind): hit-testing for gradients?
-                HitTestRegion::Rectangle(clip_rect, ClipMode::Clip)
-            }
+            // ClipItemKeyKind::Gradient { .. } => {
+            //     // TODO(wsmind): hit-testing for gradients?
+            //     HitTestRegion::Rectangle(clip_rect, ClipMode::Clip)
+            // }
         };
 
         HitTestClipNode {

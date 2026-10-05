@@ -2659,26 +2659,29 @@ impl<'a> SceneBuilder<'a> {
         );
     }
 
-    fn add_gradient_clip_node(
+    fn add_gradient_clip_node<P>(
         &mut self,
         new_node_id: ClipId,
         spatial_id: SpatialId,
         clip_rect: &LayoutRect,
-        info: &LayoutPrimitiveInfo,
-    ) {
-        let spatial_node_index = self.get_space(spatial_id);
+        info: P,
+    )
+    where
+        P: InternablePrimitive,
+    {
+        // let spatial_node_index = self.get_space(spatial_id);
 
-        let item = ClipItemKey {
-            kind: ClipItemKeyKind::gradient(bounds, tile_size, tile_spacing, gradient),
-        };
-        let handle = self
-            .interners
-            .clip
-            .intern(&item, || {
-                ClipInternData {
-                    key: item,
-                }
-            });
+        // let item = ClipItemKey {
+        //     kind: ClipItemKeyKind::gradient(bounds, tile_size, tile_spacing, gradient),
+        // };
+        // let handle = self
+        //     .interners
+        //     .clip
+        //     .intern(&item, || {
+        //         ClipInternData {
+        //             key: item,
+        //         }
+        //     });
         
         // self.clip_tree_builder.define_gradient_clip(
         //     new_node_id,
